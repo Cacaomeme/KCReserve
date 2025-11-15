@@ -30,6 +30,7 @@ uv run alembic upgrade head
 ### 環境変数 (.env 推奨)
 ```
 SECRET_KEY=change-me
+JWT_SECRET_KEY=change-me
 DATABASE_URL=sqlite:///instance/app.db
 ALLOWED_ORIGINS=http://localhost:5173
 ```
@@ -68,5 +69,14 @@ backend/
 - `users`: ログイン可能なメンバー。`is_admin` フラグで管理者を判別。
 - `whitelist_entries`: 招待メールアドレス。`is_admin_default` で初期権限を制御。
 - `reservations`: 予約申請。`status` (pending/approved...) と `visibility` (public/anonymous) を持ちます。
+
+### 実装済みAPI (抜粋)
+- `POST /api/auth/register` … ホワイトリスト対象メールのみ登録可能。JWT アクセストークンを返却。
+- `POST /api/auth/login` … 認証後に JWT を発行。
+- `GET /api/auth/me` … JWT 必須。ログイン中ユーザー情報を返却。
+- `GET /api/auth/whitelist-check?email=...` … UI用のホワイトリスト事前確認。
+- `GET /api/admin/whitelist` … 管理者向けホワイトリスト一覧。
+- `POST /api/admin/whitelist` … 管理者がメールを追加。
+- `DELETE /api/admin/whitelist/<id>` … 管理者がエントリを削除。
 
 今後は `app` 配下にモデル、サービス、Blueprint を追加しながら機能を拡張します。

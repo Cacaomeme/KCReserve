@@ -1,12 +1,7 @@
 """Basic smoke tests for the Flask application."""
 
-from app import create_app
 
-
-def test_health_endpoint() -> None:
-    app = create_app()
-    client = app.test_client()
-
+def test_health_endpoint(client) -> None:
     response = client.get("/api/health")
 
     assert response.status_code == 200
