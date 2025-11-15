@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from http import HTTPStatus
 
 from flask import Blueprint, jsonify, request
@@ -14,6 +15,17 @@ from app.schemas import serialize_reservation
 
 reservations_bp = Blueprint("reservations", __name__)
 reservations_admin_bp = Blueprint("reservations_admin", __name__)
+
+
+def _calendar_payload(reservation: Reservation, *, include_purpose: bool) -> dict[str, object]:
+    return {
+        "id": reservation.id,
+        "start": reservation.start_time.isoformat() if reservation.start_time else None,
+        "end": reservation.end_time.isoformat() if reservation.end_time else None,
+        "visibility": reservation.visibility.value,
+        "status": reservation.status.value,
+        "title": reservation.purpose if include_purpose else None,
+    }
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
@@ -45,6 +57,20 @@ def _status_from_payload(value: str | None) -> ReservationStatus | None:
 
 def _is_admin(claims: dict | None) -> bool:
     return bool(claims and claims.get("is_admin"))
+
+
+def _apply_filters(query, params: dict[str, Any]):
+    start = _parse_datetime(params.get("start"))
+    end = _parse_datetime(params.get("end"))
+    visibility = _visibility_from_payload(params.get("visibility"))
+
+    if start:
+        query = query.filter(Reservation.end_time >= start)
+    if end:
+        query = query.filter(Reservation.start_time <= end)
+    if visibility:
+        query = query.filter(Reservation.visibility == visibility)
+    return query
 
 
 @reservations_bp.post("/api/reservations")
@@ -96,10 +122,18 @@ def list_reservations():
     identity = get_jwt_identity()
     include_all = _is_admin(claims)
 
+    params = {
+        "start": request.args.get("start"),
+        "end": request.args.get("end"),
+        "visibility": request.args.get("visibility"),
+    }
+
     with session_scope() as session:
         query = session.query(Reservation).order_by(Reservation.start_time.asc())
         if not include_all:
             query = query.filter(Reservation.status == ReservationStatus.APPROVED)
+
+        query = _apply_filters(query, params)
 
         reservations = query.all()
         serialized = []
@@ -108,6 +142,39 @@ def list_reservations():
             serialized.append(serialize_reservation(reservation, include_private=include_private))
 
     return jsonify({"reservations": serialized}), HTTPStatus.OK
+
+
+@reservations_bp.get("/api/reservations/calendar")
+@jwt_required(optional=True)
+def calendar_reservations():
+    claims = get_jwt()
+    identity = get_jwt_identity()
+    include_all = _is_admin(claims)
+
+    params = {
+        "start": request.args.get("start"),
+        "end": request.args.get("end"),
+        "visibility": request.args.get("visibility"),
+    }
+
+    with session_scope() as session:
+        query = session.query(Reservation).order_by(Reservation.start_time.asc())
+        if not include_all:
+            query = query.filter(Reservation.status == ReservationStatus.APPROVED)
+        query = _apply_filters(query, params)
+        reservations = query.all()
+
+        viewer_id = int(identity) if identity is not None else None
+        events = []
+        for reservation in reservations:
+            include_purpose = (
+                include_all
+                or (viewer_id is not None and viewer_id == reservation.user_id)
+                or reservation.visibility == ReservationVisibility.PUBLIC
+            )
+            events.append(_calendar_payload(reservation, include_purpose=include_purpose))
+
+    return jsonify({"events": events}), HTTPStatus.OK
 
 
 @reservations_bp.get("/api/reservations/mine")

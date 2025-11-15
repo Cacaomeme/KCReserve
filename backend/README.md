@@ -81,6 +81,8 @@ backend/
 - `GET /api/auth/whitelist-check?email=...` … UI用のホワイトリスト事前確認。
 - `POST /api/reservations` … 認証済みユーザーが予約申請（pending）。
 - `GET /api/reservations` … 公開カレンダー向け。管理者はクエリを指定せずとも全件取得。
+-   - クエリ: `start`, `end` (ISO8601), `visibility=public|anonymous` でフィルタ可能。
+- `GET /api/reservations/calendar` … カレンダー用の軽量イベントリスト。公開予約のみタイトルを返却（管理者/本人は匿名予約でも閲覧可）。
 - `GET /api/reservations/mine` … ログイン中ユーザーの予約履歴。
 - `GET /api/admin/whitelist` … 管理者向けホワイトリスト一覧。
 - `POST /api/admin/whitelist` … 管理者がメールを追加。
