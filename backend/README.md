@@ -47,6 +47,10 @@ backend/
 │   │   ├── reservation.py # Reservationテーブル定義
 │   │   ├── user.py        # Userテーブル定義
 │   │   └── whitelist.py   # Whitelistテーブル定義
+│   ├── routes/
+│   │   ├── auth.py        # 認証 + ホワイトリストAPI
+│   │   ├── health.py      # ヘルスチェックAPI
+│   │   └── reservations.py# 予約API
 │   └── routes/
 │       └── health.py      # ヘルスチェックAPI
 ├── migrations/            # Alembicリビジョン
@@ -75,8 +79,12 @@ backend/
 - `POST /api/auth/login` … 認証後に JWT を発行。
 - `GET /api/auth/me` … JWT 必須。ログイン中ユーザー情報を返却。
 - `GET /api/auth/whitelist-check?email=...` … UI用のホワイトリスト事前確認。
+- `POST /api/reservations` … 認証済みユーザーが予約申請（pending）。
+- `GET /api/reservations` … 公開カレンダー向け。管理者はクエリを指定せずとも全件取得。
+- `GET /api/reservations/mine` … ログイン中ユーザーの予約履歴。
 - `GET /api/admin/whitelist` … 管理者向けホワイトリスト一覧。
 - `POST /api/admin/whitelist` … 管理者がメールを追加。
 - `DELETE /api/admin/whitelist/<id>` … 管理者がエントリを削除。
+- `PATCH /api/admin/reservations/<id>/status` … 管理者が承認/却下や公開設定を更新。
 
 今後は `app` 配下にモデル、サービス、Blueprint を追加しながら機能を拡張します。
