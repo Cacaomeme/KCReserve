@@ -1,6 +1,6 @@
 # Backend (Flask + uv)
 
-山小屋予約システムのバックエンドを [uv](https://github.com/astral-sh/uv) で管理します。Flask と SQLite を使った API を提供し、今後の開発で予約・認証機能を追加していきます。
+山小屋予約システムのバックエンドを [uv](https://github.com/astral-sh/uv) で管理します。Flask + SQLite をベースに、Alembic でスキーマをバージョン管理しながら予約・認証機能を実装していきます。
 
 ## 前提
 - Windows PowerShell で `uv` が使える状態 (`uv --version`で確認)
@@ -19,6 +19,12 @@ uv run python main.py
 
 # pytestでテスト
 uv run pytest
+
+# Alembic: リビジョン作成（モデル変更後）
+uv run alembic revision --autogenerate -m "change summary"
+
+# Alembic: 最新リビジョンを適用
+uv run alembic upgrade head
 ```
 
 ### 環境変数 (.env 推奨)
@@ -34,13 +40,33 @@ backend/
 ├── app/
 │   ├── __init__.py        # Flaskアプリ工場
 │   ├── config.py          # 設定ロード
+│   ├── database.py        # SQLAlchemyエンジン/Session
 │   ├── main.py            # Flask実行エントリ
+│   ├── models/
+│   │   ├── reservation.py # Reservationテーブル定義
+│   │   ├── user.py        # Userテーブル定義
+│   │   └── whitelist.py   # Whitelistテーブル定義
 │   └── routes/
 │       └── health.py      # ヘルスチェックAPI
+├── migrations/            # Alembicリビジョン
+│   └── versions/
 ├── tests/
 │   └── test_health.py     # 最小テスト
 ├── pyproject.toml
 └── README.md
 ```
+
+## Alembic 初期化の流れ
+1. `uv run alembic init migrations` … プロジェクト初期のみ実行。
+2. `app/models/` にテーブル定義を追加し、`app/database.Base` を継承させる。
+3. `uv run alembic revision --autogenerate -m "create <table>"` で差分を作成。
+4. `uv run alembic upgrade head` で SQLite に適用。
+
+`migrations/env.py` はアプリ設定 (`app.config`) を読み込み、`Base.metadata` をターゲットに自動生成するよう調整済みです。
+
+### 定義済みテーブル概要
+- `users`: ログイン可能なメンバー。`is_admin` フラグで管理者を判別。
+- `whitelist_entries`: 招待メールアドレス。`is_admin_default` で初期権限を制御。
+- `reservations`: 予約申請。`status` (pending/approved...) と `visibility` (public/anonymous) を持ちます。
 
 今後は `app` 配下にモデル、サービス、Blueprint を追加しながら機能を拡張します。

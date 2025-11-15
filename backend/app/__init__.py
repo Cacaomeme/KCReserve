@@ -6,6 +6,9 @@ from flask_cors import CORS
 from .config import get_settings
 from .routes.health import health_bp
 
+# Import models so Alembic autogenerate can discover metadata.
+from . import models  # noqa: F401
+
 
 def create_app() -> Flask:
     """Create and configure the Flask application instance."""
