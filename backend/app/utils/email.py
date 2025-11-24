@@ -40,10 +40,6 @@ def _send_email_sync(to_email: str, subject: str, body: str):
             # Use implicit SSL for port 465
             import ssl
             context = ssl.create_default_context()
-            # Since we are connecting by IP, the certificate hostname check will fail.
-            # We disable the check_hostname flag but keep verify_mode to CERT_REQUIRED (default)
-            # This ensures the cert is valid, even if we don't check the name against the IP.
-            # (In a stricter environment we would wrap the socket manually to pass server_hostname)
             context.check_hostname = False
             
             with smtplib.SMTP_SSL(server_ip, settings.mail_port, context=context, timeout=30) as server:
@@ -55,9 +51,9 @@ def _send_email_sync(to_email: str, subject: str, body: str):
         else:
             # Use STARTTLS for port 587 (or others)
             with smtplib.SMTP(server_ip, settings.mail_port, timeout=30) as server:
+                # server.set_debuglevel(1)
                 if settings.mail_use_tls:
                     log("Connected. Starting TLS...")
-                    # For STARTTLS, we should ideally pass the hostname to starttls context
                     import ssl
                     context = ssl.create_default_context()
                     context.check_hostname = False
