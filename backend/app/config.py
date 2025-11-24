@@ -60,7 +60,7 @@ def get_settings() -> Settings:
         return raw.strip().lower() in {"1", "true", "yes", "on"}
 
     access_token_minutes = _get_int("JWT_ACCESS_TOKEN_MINUTES", 15)
-    refresh_token_days = _get_int("JWT_REFRESH_TOKEN_DAYS", 14)
+    refresh_token_days = _get_int("JWT_REFRESH_TOKEN_DAYS", 1)
     refresh_cookie_secure = _get_bool("JWT_REFRESH_COOKIE_SECURE", False)
     refresh_cookie_samesite = os.getenv("JWT_REFRESH_COOKIE_SAMESITE", "Lax")
 
