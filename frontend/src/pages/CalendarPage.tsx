@@ -47,14 +47,21 @@ export function CalendarPage() {
   const [pendingCount, setPendingCount] = useState(0)
   const [videoUrl, setVideoUrl] = useState('')
 
+  const refreshPendingCount = () => {
+    if (user?.isAdmin) {
+      getPendingCount().then(setPendingCount).catch(console.error)
+    }
+  }
+
   useEffect(() => {
     getVideoUrl().then(setVideoUrl).catch(console.error)
   }, [])
 
   useEffect(() => {
-    if (user?.isAdmin) {
-      getPendingCount().then(setPendingCount).catch(console.error)
-    }
+    refreshPendingCount()
+    // Poll every 30 seconds to keep the badge updated
+    const interval = setInterval(refreshPendingCount, 30000)
+    return () => clearInterval(interval)
   }, [user])
 
   const visibilityParam = visibilityFilter === 'all' ? undefined : visibilityFilter
@@ -120,6 +127,7 @@ export function CalendarPage() {
             }
         })
         refetch()
+        refreshPendingCount()
     } catch (e) {
         alert('更新に失敗しました')
     }
@@ -133,6 +141,7 @@ export function CalendarPage() {
       await deleteReservation(selectedEvent.extendedProps.id)
       setSelectedEvent(null)
       refetch()
+      refreshPendingCount()
     } catch (e: any) {
       const message = e.response?.data?.message || e.message || '削除に失敗しました'
       alert(`エラー: ${message}`)
@@ -150,6 +159,7 @@ export function CalendarPage() {
       await requestCancellation(selectedEvent.extendedProps.id, reason)
       setSelectedEvent(null)
       refetch()
+      refreshPendingCount()
       alert('キャンセル申請を行いました')
     } catch (e: any) {
       const message = e.response?.data?.message || e.message || '申請に失敗しました'
