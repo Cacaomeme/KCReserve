@@ -123,6 +123,7 @@ def register():
 
         user = User(
             email=email,
+            display_name=display_name or whitelist_entry.display_name,
             hashed_password=generate_password_hash(password),
             is_admin=whitelist_entry.is_admin_default,
             is_active=True,
@@ -279,6 +280,7 @@ def update_me():
 
         if "display_name" in data:
             whitelist_entry.display_name = data["display_name"]
+            user.display_name = data["display_name"]
 
         session.flush()
         return jsonify({"user": _serialize_user_with_profile(session, user)}), HTTPStatus.OK

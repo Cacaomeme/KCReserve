@@ -65,10 +65,11 @@
     "reserved": "予約済み",
     "reservedAnonymous": "予約済み (非公開)",
     "status": {
-      "approved": "承認済み",
+      "approved": "予約済み",
       "pending": "申請中",
       "rejected": "却下",
-      "cancelled": "キャンセル"
+      "cancelled": "キャンセル済み",
+      "cancellation_requested": "キャンセル申請中"
     }
   }
 }

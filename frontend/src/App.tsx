@@ -4,6 +4,8 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { AdminWhitelistPage } from './pages/AdminWhitelistPage'
+import { ReservationRequestPage } from './pages/ReservationRequestPage'
+import { AdminReservationListPage } from './pages/AdminReservationListPage'
 import { useAuth } from './context/AuthContext'
 import './App.css'
 
@@ -38,8 +40,16 @@ function App() {
         element={user ? <ProfilePage /> : <Navigate to="/login" replace />}
       />
       <Route
+        path="/reservations/new"
+        element={user ? <ReservationRequestPage /> : <Navigate to="/login" replace />}
+      />
+      <Route
         path="/admin/whitelist"
         element={user?.isAdmin ? <AdminWhitelistPage /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/admin/reservations"
+        element={user?.isAdmin ? <AdminReservationListPage /> : <Navigate to="/" replace />}
       />
       {/* 追加: 存在しないパスはルートへリダイレクト */}
       <Route path="*" element={<Navigate to="/" replace />} />
