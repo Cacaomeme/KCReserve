@@ -3,6 +3,7 @@ services:
   - type: web
     name: kcreserve-backend
     runtime: python
+    plan: free # 無料プランを明示的に指定
     region: singapore # 日本に近いリージョン推奨
     buildCommand: "cd backend && pip install -r requirements.txt"
     startCommand: "cd backend && alembic upgrade head && gunicorn app.main:app --bind 0.0.0.0:$PORT"
