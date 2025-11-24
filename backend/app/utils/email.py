@@ -3,6 +3,7 @@ import threading
 import sys
 import traceback
 import socket
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from app.config import get_settings
 from app.models.user import User
@@ -126,8 +127,8 @@ def send_new_reservation_notification(reservation_id: int):
                 user_name = reservation.user.display_name if reservation.user else "Unknown"
                 user_email = reservation.user.email if reservation.user else "Unknown"
                 purpose = reservation.purpose
-                start = reservation.start_time
-                end = reservation.end_time
+                start = _format_dt_jst(reservation.start_time)
+                end = _format_dt_jst(reservation.end_time)
                 count = reservation.attendee_count
                 desc = reservation.description or 'なし'
 
@@ -179,8 +180,8 @@ def send_cancellation_request_notification(reservation_id: int):
                 user_name = reservation.user.display_name if reservation.user else "Unknown"
                 user_email = reservation.user.email if reservation.user else "Unknown"
                 purpose = reservation.purpose
-                start = reservation.start_time
-                end = reservation.end_time
+                start = _format_dt_jst(reservation.start_time)
+                end = _format_dt_jst(reservation.end_time)
                 reason = reservation.cancellation_reason or 'なし'
 
                 admins = session.query(User).filter(
@@ -216,3 +217,15 @@ https://kcreserve-frontend.onrender.com/
 
     thread = threading.Thread(target=_notify)
     thread.start()
+
+JST = timezone(timedelta(hours=9))
+
+def _format_dt_jst(dt):
+    if not dt:
+        return ""
+    # If naive, assume UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    
+    dt_jst = dt.astimezone(JST)
+    return dt_jst.strftime("%Y/%m/%d %H:%M")

@@ -20,10 +20,17 @@ reservations_admin_bp = Blueprint("reservations_admin", __name__)
 
 
 def _calendar_payload(reservation: Reservation) -> dict[str, object]:
+    def format_dt(dt):
+        if not dt:
+            return None
+        if dt.tzinfo is None:
+            return dt.isoformat() + 'Z'
+        return dt.isoformat()
+
     return {
         "id": reservation.id,
-        "start": reservation.start_time.isoformat() if reservation.start_time else None,
-        "end": reservation.end_time.isoformat() if reservation.end_time else None,
+        "start": format_dt(reservation.start_time),
+        "end": format_dt(reservation.end_time),
         "visibility": reservation.visibility.value,
         "status": reservation.status.value,
     }

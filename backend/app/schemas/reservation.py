@@ -8,6 +8,14 @@ from app.schemas.user import serialize_user
 
 def serialize_reservation(reservation: Reservation, *, include_private: bool = False) -> dict[str, object]:
     """Serialize a reservation into JSON ready dict."""
+    def format_dt(dt):
+        if not dt:
+            return None
+        # If the datetime is naive, assume it is UTC and append 'Z'
+        if dt.tzinfo is None:
+            return dt.isoformat() + 'Z'
+        return dt.isoformat()
+
     data = {
         "id": reservation.id,
         "userId": reservation.user_id,
@@ -22,9 +30,9 @@ def serialize_reservation(reservation: Reservation, *, include_private: bool = F
         "approvalMessage": reservation.approval_message if include_private else None,
         "attendeeCount": reservation.attendee_count,
         "allowAdditionalMembers": reservation.allow_additional_members,
-        "startTime": reservation.start_time.isoformat() if reservation.start_time else None,
-        "endTime": reservation.end_time.isoformat() if reservation.end_time else None,
-        "createdAt": reservation.created_at.isoformat() if reservation.created_at else None,
-        "updatedAt": reservation.updated_at.isoformat() if reservation.updated_at else None,
+        "startTime": format_dt(reservation.start_time),
+        "endTime": format_dt(reservation.end_time),
+        "createdAt": format_dt(reservation.created_at),
+        "updatedAt": format_dt(reservation.updated_at),
     }
     return data
