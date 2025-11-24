@@ -28,17 +28,30 @@ def _send_email_sync(to_email: str, subject: str, body: str):
 
     try:
         log(f"Connecting to {settings.mail_server}:{settings.mail_port}...")
-        with smtplib.SMTP(settings.mail_server, settings.mail_port) as server:
-            # server.set_debuglevel(1) # Uncomment for verbose SMTP logs
-            if settings.mail_use_tls:
-                log("Starting TLS...")
-                server.starttls()
-            
-            log(f"Logging in as {settings.mail_username}...")
-            server.login(settings.mail_username, password)
-            
-            log(f"Sending message to {to_email}...")
-            server.send_message(msg)
+        
+        if settings.mail_port == 465:
+            # Use implicit SSL for port 465
+            with smtplib.SMTP_SSL(settings.mail_server, settings.mail_port) as server:
+                # server.set_debuglevel(1)
+                log(f"Logging in as {settings.mail_username}...")
+                server.login(settings.mail_username, password)
+                
+                log(f"Sending message to {to_email}...")
+                server.send_message(msg)
+        else:
+            # Use STARTTLS for port 587 (or others)
+            with smtplib.SMTP(settings.mail_server, settings.mail_port) as server:
+                # server.set_debuglevel(1)
+                if settings.mail_use_tls:
+                    log("Starting TLS...")
+                    server.starttls()
+                
+                log(f"Logging in as {settings.mail_username}...")
+                server.login(settings.mail_username, password)
+                
+                log(f"Sending message to {to_email}...")
+                server.send_message(msg)
+                
         log(f"Email sent successfully to {to_email}")
     except Exception as e:
         log(f"Failed to send email to {to_email}: {e}")
