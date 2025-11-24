@@ -34,15 +34,11 @@ services:
   - type: web
     name: kcreserve-frontend
     runtime: static
-    region: singapore
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: "./frontend/dist"
     envVars:
       - key: VITE_API_BASE_URL
-        fromService:
-          type: web
-          name: kcreserve-backend
-          property: url
+        sync: false # バックエンドのURL（https://kcreserve-backend.onrender.com など）を手動で入力
 
 # databases:
 #   - name: kcreserve-db
