@@ -8,8 +8,30 @@ import jaLocale from '@fullcalendar/core/locales/ja'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
 import { useAuth } from '../context/AuthContext'
 import { updateReservation, deleteReservation, requestCancellation, getPendingCount } from '../api/reservations'
+import { getVideoUrl } from '../api/systemSettings'
 
 const bufferInDays = 7
+
+function getEmbedUrl(url: string): string {
+  try {
+    let videoId = '';
+    if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1]?.split('?')[0];
+    } else if (url.includes('youtube.com/watch')) {
+      const urlParams = new URLSearchParams(new URL(url).search);
+      videoId = urlParams.get('v') || '';
+    } else if (url.includes('youtube.com/embed/')) {
+        return url;
+    }
+
+    if (videoId) {
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    return url;
+  } catch (e) {
+    return url;
+  }
+}
 
 export function CalendarPage() {
   const { t } = useTranslation()
@@ -23,6 +45,11 @@ export function CalendarPage() {
     end: dayjs().endOf('month').add(bufferInDays, 'day').toISOString(),
   }))
   const [pendingCount, setPendingCount] = useState(0)
+  const [videoUrl, setVideoUrl] = useState('')
+
+  useEffect(() => {
+    getVideoUrl().then(setVideoUrl).catch(console.error)
+  }, [])
 
   useEffect(() => {
     if (user?.isAdmin) {
@@ -132,7 +159,7 @@ export function CalendarPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
+      <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <p className="eyebrow">KC Reserve</p>
           <h1>{t('app.title')}</h1>
@@ -140,34 +167,89 @@ export function CalendarPage() {
             {/* {t('app.subtitle')} */}
           </p>
         </div>
-        <div style={{ marginTop: '1rem' }}>
-            <button className="button" onClick={() => navigate('/reservations/new')}>予約申請</button>
-            {user?.isAdmin && (
-                <button className="button secondary" onClick={() => navigate('/admin/reservations')} style={{ marginLeft: '1rem', position: 'relative' }}>
-                  申請一覧
-                  {pendingCount > 0 && (
-                    <span style={{
-                      position: 'absolute',
-                      top: '-8px',
-                      right: '-8px',
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      borderRadius: '50%',
-                      width: '20px',
-                      height: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      fontWeight: 'bold'
-                    }}>
-                      {pendingCount}
-                    </span>
-                  )}
-                </button>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+                <button className="button large" onClick={() => navigate('/reservations/new')}>予約申請</button>
+                {user?.isAdmin && (
+                    <button className="button secondary large" onClick={() => navigate('/admin/reservations')} style={{ position: 'relative' }}>
+                    申請一覧
+                    {pendingCount > 0 && (
+                        <span style={{
+                        position: 'absolute',
+                        top: '-8px',
+                        right: '-8px',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                        }}>
+                        {pendingCount}
+                        </span>
+                    )}
+                    </button>
+                )}
+            </div>
+
+            {user && (
+                <div className="auth-panel" style={{ minWidth: 'auto', padding: '0.75rem', marginBottom: 0 }}>
+                    <div className="auth-status">
+                        <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                            {t('auth.signedInAs', { email: user.email })}
+                            {user.isAdmin ? ` ${t('auth.admin')}` : ''}
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                            {user.isAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/admin/whitelist')}
+                                    className="button secondary"
+                                    style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                                >
+                                    {t('admin.editWhitelist')}
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => navigate('/profile')}
+                                className="button secondary"
+                                style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                            >
+                                {t('auth.editProfile')}
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={logout} 
+                                className="button ghost"
+                                style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                            >
+                                {t('auth.signOut')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
       </header>
+
+      <section className="video-section">
+        <h2 style={{ marginTop: 0, fontSize: '1.25rem', color: '#475569' }}>山小屋の利用方法</h2>
+        <div className="video-container">
+          {videoUrl && (
+            <iframe 
+                src={getEmbedUrl(videoUrl)} 
+                title="YouTube video player" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowFullScreen
+            ></iframe>
+          )}
+        </div>
+      </section>
 
       <section className="controls">
         <div className="field">
@@ -181,38 +263,6 @@ export function CalendarPage() {
             <option value="public">{t('filters.public')}</option>
             <option value="anonymous">{t('filters.anonymous')}</option>
           </select>
-        </div>
-
-        <div className="auth-panel">
-          {user && (
-            <div className="auth-status">
-              <p>
-                {t('auth.signedInAs', { email: user.email })}
-                {user.isAdmin ? ` ${t('auth.admin')}` : ''}
-              </p>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {user.isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/admin/whitelist')}
-                    className="button secondary"
-                  >
-                    {t('admin.editWhitelist')}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => navigate('/profile')}
-                  className="button secondary"
-                >
-                  {t('auth.editProfile')}
-                </button>
-                <button type="button" onClick={logout} className="button ghost">
-                  {t('auth.signOut')}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {isFetching && <span className="status-pill">{t('app.refreshing')}</span>}

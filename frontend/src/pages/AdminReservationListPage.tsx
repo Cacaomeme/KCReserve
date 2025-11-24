@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiClient } from '../api/client'
 import { useNavigate } from 'react-router-dom'
+import { getVideoUrl, updateVideoUrl } from '../api/systemSettings'
 
 type Reservation = {
   id: number
@@ -24,11 +25,34 @@ export function AdminReservationListPage() {
   const [loading, setLoading] = useState(true)
   const [rejectionReason, setRejectionReason] = useState<{[key: number]: string}>({})
   const [approvalMessage, setApprovalMessage] = useState<{[key: number]: string}>({})
+  const [videoUrl, setVideoUrl] = useState('')
+  const [newVideoUrl, setNewVideoUrl] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchReservations()
+    fetchVideoUrl()
   }, [])
+
+  const fetchVideoUrl = async () => {
+    try {
+      const url = await getVideoUrl()
+      setVideoUrl(url)
+      setNewVideoUrl(url)
+    } catch (error) {
+      console.error('Failed to fetch video URL', error)
+    }
+  }
+
+  const handleUpdateVideoUrl = async () => {
+    try {
+      await updateVideoUrl(newVideoUrl)
+      setVideoUrl(newVideoUrl)
+      alert('動画URLを更新しました')
+    } catch (error) {
+      alert('動画URLの更新に失敗しました')
+    }
+  }
 
   const fetchReservations = async () => {
     try {
@@ -76,6 +100,27 @@ export function AdminReservationListPage() {
         <h1>予約申請一覧</h1>
         <button className="button ghost" onClick={() => navigate('/')}>戻る</button>
       </header>
+
+      <section style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
+        <h2 style={{ marginTop: 0 }}>システム設定</h2>
+        <div className="field">
+            <label htmlFor="videoUrl">トップページ動画URL (YouTube)</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input 
+                    id="videoUrl"
+                    type="text" 
+                    value={newVideoUrl} 
+                    onChange={(e) => setNewVideoUrl(e.target.value)}
+                    style={{ flex: 1, padding: '0.5rem' }}
+                    placeholder="https://youtu.be/..."
+                />
+                <button className="button" onClick={handleUpdateVideoUrl}>更新</button>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>
+                現在の設定: {videoUrl}
+            </p>
+        </div>
+      </section>
       
       <section>
         <h2>キャンセル申請</h2>

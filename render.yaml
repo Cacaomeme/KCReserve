@@ -1,0 +1,42 @@
+services:
+  # バックエンド (Python/Flask)
+  - type: web
+    name: kcreserve-backend
+    env: python
+    region: singapore # 日本に近いリージョン推奨
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && alembic upgrade head && gunicorn app.main:app --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "*" # 初期設定として全許可。後でフロントエンドのURLに変更推奨
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kcreserve-db
+          property: connectionString
+
+  # フロントエンド (React/Vite)
+  - type: static
+    name: kcreserve-frontend
+    env: static
+    region: singapore
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: "./frontend/dist"
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: kcreserve-backend
+          property: url
+
+databases:
+  - name: kcreserve-db
+    databaseName: kcreserve
+    user: kcreserve_user
+    region: singapore
+    plan: free # 90日で期限切れになるため、長期運用の場合は有料プランへのアップグレードが必要

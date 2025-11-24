@@ -10,6 +10,7 @@ from .config import get_settings
 from .routes.auth import admin_bp, auth_bp
 from .routes.health import health_bp
 from .routes.reservations import reservations_admin_bp, reservations_bp
+from .routes.system_settings import bp as system_settings_bp
 
 # Import models so Alembic autogenerate can discover metadata.
 from . import models  # noqa: F401
@@ -39,6 +40,7 @@ def create_app() -> Flask:
     app.register_blueprint(admin_bp)
     app.register_blueprint(reservations_bp)
     app.register_blueprint(reservations_admin_bp)
+    app.register_blueprint(system_settings_bp)
 
     @app.get("/api/ping")
     def ping() -> tuple[dict[str, str], int]:
