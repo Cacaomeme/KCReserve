@@ -10,8 +10,8 @@ def serialize_whitelist_entry(entry: WhitelistEntry) -> dict[str, object]:
     return {
         "id": entry.id,
         "email": entry.email,
-        "displayName": entry.display_name,
-        "isAdminDefault": entry.is_admin_default,
-        "addedByUserId": entry.added_by_user_id,
-        "createdAt": entry.created_at.isoformat() if entry.created_at else None,
+        "display_name": entry.display_name,
+        "is_admin_default": entry.is_admin_default,
+        "added_by_user_id": entry.added_by_user_id,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None,
     }

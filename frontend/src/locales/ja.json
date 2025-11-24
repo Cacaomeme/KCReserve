@@ -1,0 +1,74 @@
+{
+  "app": {
+    "title": "山小屋予約カレンダー",
+    "subtitle": "承認済みの予約が表示されます。詳細や申請中の予約を確認するにはサインインしてください。",
+    "loading": "カレンダーを読み込み中...",
+    "refreshing": "更新中...",
+    "error": "イベントの読み込みに失敗しました。"
+  },
+  "auth": {
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "signIn": "サインイン",
+    "signingIn": "サインイン中...",
+    "signOut": "ログアウト",
+    "signUp": "新規登録",
+    "signingUp": "登録中...",
+    "register": "アカウント登録",
+    "confirmPassword": "パスワード（確認）",
+    "displayName": "表示名",
+    "toLogin": "ログイン画面へ戻る",
+    "noAccount": "アカウントをお持ちでない方はこちら",
+    "signedInAs": "ログイン中: {{email}}",
+    "admin": "(管理者)",
+    "editProfile": "プロフィール編集"
+  },
+  "profile": {
+    "title": "プロフィール編集",
+    "update": "更新",
+    "updating": "更新中...",
+    "updateSuccess": "プロフィールを更新しました"
+  },
+  "admin": {
+    "whitelist": {
+      "title": "ホワイトリスト管理",
+      "addTitle": "新規追加",
+      "listTitle": "登録済みユーザー一覧",
+      "name": "表示名",
+      "isAdmin": "管理者権限を付与",
+      "role": "権限",
+      "member": "一般",
+      "actions": "操作",
+      "add": "追加",
+      "adding": "追加中...",
+      "delete": "削除",
+      "confirmDelete": "本当に削除しますか？",
+      "noEntries": "登録がありません"
+    },
+    "editWhitelist": "ホワイトリスト編集"
+  },
+  "filters": {
+    "label": "表示設定",
+    "all": "すべての予約",
+    "public": "公開のみ",
+    "anonymous": "非公開のみ"
+  },
+  "calendar": {
+    "today": "今日",
+    "month": "月",
+    "week": "週",
+    "day": "日",
+    "list": "リスト",
+    "backToCalendar": "カレンダーに戻る"
+  },
+  "event": {
+    "reserved": "予約済み",
+    "reservedAnonymous": "予約済み (非公開)",
+    "status": {
+      "approved": "承認済み",
+      "pending": "申請中",
+      "rejected": "却下",
+      "cancelled": "キャンセル"
+    }
+  }
+}

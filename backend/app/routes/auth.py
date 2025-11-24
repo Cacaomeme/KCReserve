@@ -91,11 +91,19 @@ def admin_required(fn):
     return wrapper
 
 
+def _serialize_user_with_profile(session, user: User) -> dict[str, object]:
+    data = serialize_user(user)
+    whitelist_entry = session.query(WhitelistEntry).filter(WhitelistEntry.email == user.email).first()
+    data["display_name"] = whitelist_entry.display_name if whitelist_entry else None
+    return data
+
+
 @auth_bp.post("/api/auth/register")
 def register():
     data = request.get_json() or {}
     email = _normalize_email(data.get("email"))
     password = data.get("password", "")
+    display_name = data.get("display_name")
 
     if not email or not password:
         return jsonify({"message": "email と password は必須です"}), HTTPStatus.BAD_REQUEST
@@ -109,6 +117,10 @@ def register():
         if existing_user:
             return jsonify({"message": "既にユーザーが存在します"}), HTTPStatus.CONFLICT
 
+        # Update display name in whitelist if provided
+        if display_name:
+            whitelist_entry.display_name = display_name
+
         user = User(
             email=email,
             hashed_password=generate_password_hash(password),
@@ -121,7 +133,7 @@ def register():
         token = _issue_token(user)
         refresh_token = _mint_refresh_token(session, user)
 
-        response = jsonify({"user": serialize_user(user), "accessToken": token})
+        response = jsonify({"user": _serialize_user_with_profile(session, user), "accessToken": token})
         _set_refresh_cookie(response, refresh_token)
         return response, HTTPStatus.CREATED
 
@@ -144,7 +156,7 @@ def login():
 
         token = _issue_token(user)
         refresh_token = _mint_refresh_token(session, user)
-        response = jsonify({"user": serialize_user(user), "accessToken": token})
+        response = jsonify({"user": _serialize_user_with_profile(session, user), "accessToken": token})
         _set_refresh_cookie(response, refresh_token)
         return response, HTTPStatus.OK
 
@@ -186,7 +198,7 @@ def refresh_token():
         stored.revoked_at = now
         new_refresh_token = _mint_refresh_token(session, user)
         token = _issue_token(user)
-        response = jsonify({"user": serialize_user(user), "accessToken": token})
+        response = jsonify({"user": _serialize_user_with_profile(session, user), "accessToken": token})
         _set_refresh_cookie(response, new_refresh_token)
         return response, HTTPStatus.OK
 
@@ -222,11 +234,54 @@ def me():
         claims = get_jwt()
         return (
             jsonify({
-                "user": serialize_user(user),
+                "user": _serialize_user_with_profile(session, user),
                 "claims": {"isAdmin": claims.get("is_admin", False)},
             }),
             HTTPStatus.OK,
         )
+
+
+@auth_bp.put("/api/auth/me")
+@jwt_required()
+def update_me():
+    user_id = get_jwt_identity()
+    data = request.get_json() or {}
+    
+    with session_scope() as session:
+        user = session.get(User, int(user_id))
+        if user is None:
+            return jsonify({"message": "ユーザーが存在しません"}), HTTPStatus.NOT_FOUND
+
+        whitelist_entry = session.query(WhitelistEntry).filter(WhitelistEntry.email == user.email).first()
+        if whitelist_entry is None:
+            # Should not happen for valid users
+            return jsonify({"message": "ホワイトリストエントリが見つかりません"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+        if "email" in data:
+            new_email = _normalize_email(data["email"])
+            if new_email and new_email != user.email:
+                # Check if email is already taken by another user
+                existing_user = session.query(User).filter(User.email == new_email).first()
+                if existing_user:
+                    return jsonify({"message": "このメールアドレスは既に使用されています"}), HTTPStatus.CONFLICT
+                
+                # Check if email is in whitelist (if we enforce whitelist for email changes)
+                # Or we update whitelist entry as well.
+                # Requirement: "Sync with Whitelist"
+                # If we change email, we must update whitelist entry email too.
+                # Check if new email already exists in whitelist (belonging to someone else)
+                existing_wl = session.query(WhitelistEntry).filter(WhitelistEntry.email == new_email).first()
+                if existing_wl and existing_wl.id != whitelist_entry.id:
+                     return jsonify({"message": "このメールアドレスは既にホワイトリストに存在します"}), HTTPStatus.CONFLICT
+
+                user.email = new_email
+                whitelist_entry.email = new_email
+
+        if "display_name" in data:
+            whitelist_entry.display_name = data["display_name"]
+
+        session.flush()
+        return jsonify({"user": _serialize_user_with_profile(session, user)}), HTTPStatus.OK
 
 
 @auth_bp.get("/api/auth/whitelist-check")
@@ -260,8 +315,8 @@ def list_whitelist():
 def add_whitelist_entry():
     data = request.get_json() or {}
     email = _normalize_email(data.get("email"))
-    display_name = data.get("displayName")
-    is_admin_default = bool(data.get("isAdminDefault", False))
+    display_name = data.get("display_name")
+    is_admin_default = bool(data.get("is_admin_default", False))
 
     if not email:
         return jsonify({"message": "email は必須です"}), HTTPStatus.BAD_REQUEST
@@ -284,6 +339,33 @@ def add_whitelist_entry():
         session.flush()
 
         return jsonify({"entry": serialize_whitelist_entry(entry)}), HTTPStatus.CREATED
+
+
+@admin_bp.put("/api/admin/whitelist/<int:entry_id>")
+@admin_required
+def update_whitelist_entry(entry_id: int):
+    data = request.get_json() or {}
+    
+    with session_scope() as session:
+        entry = session.get(WhitelistEntry, entry_id)
+        if entry is None:
+            return jsonify({"message": "指定されたIDが見つかりません"}), HTTPStatus.NOT_FOUND
+
+        if "email" in data:
+            new_email = _normalize_email(data["email"])
+            if new_email and new_email != entry.email:
+                exists = session.query(WhitelistEntry).filter(WhitelistEntry.email == new_email).first()
+                if exists:
+                    return jsonify({"message": "既にホワイトリストに登録されています"}), HTTPStatus.CONFLICT
+                entry.email = new_email
+
+        if "display_name" in data:
+            entry.display_name = data["display_name"]
+        
+        if "is_admin_default" in data:
+            entry.is_admin_default = bool(data["is_admin_default"])
+
+        return jsonify({"entry": serialize_whitelist_entry(entry)}), HTTPStatus.OK
 
 
 @admin_bp.delete("/api/admin/whitelist/<int:entry_id>")
