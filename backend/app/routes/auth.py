@@ -282,6 +282,9 @@ def update_me():
             whitelist_entry.display_name = data["display_name"]
             user.display_name = data["display_name"]
 
+        if "receives_notification" in data:
+            user.receives_notification = bool(data["receives_notification"])
+
         session.flush()
         return jsonify({"user": _serialize_user_with_profile(session, user)}), HTTPStatus.OK
 

@@ -13,6 +13,7 @@ from sqlalchemy import or_
 from app.database import session_scope
 from app.models.reservation import Reservation, ReservationStatus, ReservationVisibility
 from app.schemas import serialize_reservation
+from app.utils.email import send_new_reservation_notification
 
 reservations_bp = Blueprint("reservations", __name__)
 reservations_admin_bp = Blueprint("reservations_admin", __name__)
@@ -115,6 +116,10 @@ def create_reservation():
         session.add(reservation)
         session.flush()
         response_body = serialize_reservation(reservation, include_private=True)
+        reservation_id = reservation.id
+
+    # Send notification email to admins
+    send_new_reservation_notification(reservation_id)
 
     return jsonify({"reservation": response_body}), HTTPStatus.CREATED
 

@@ -6,6 +6,7 @@ export type AuthUser = {
   email: string
   display_name?: string | null
   isAdmin: boolean
+  receivesNotification: boolean
   isActive: boolean
   createdAt: string | null
   updatedAt: string | null
@@ -19,6 +20,7 @@ export type AuthPayload = {
 export type UpdateProfilePayload = {
   email?: string
   display_name?: string
+  receives_notification?: boolean
 }
 
 export async function login(email: string, password: string) {

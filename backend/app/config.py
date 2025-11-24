@@ -23,6 +23,12 @@ class Settings:
     refresh_token_expires_days: int
     refresh_cookie_secure: bool
     refresh_cookie_samesite: str
+    mail_server: str | None
+    mail_port: int
+    mail_username: str | None
+    mail_password: str | None
+    mail_use_tls: bool
+    mail_default_sender: str | None
 
 
 @lru_cache(maxsize=1)
@@ -57,6 +63,13 @@ def get_settings() -> Settings:
     refresh_cookie_secure = _get_bool("JWT_REFRESH_COOKIE_SECURE", False)
     refresh_cookie_samesite = os.getenv("JWT_REFRESH_COOKIE_SAMESITE", "Lax")
 
+    mail_server = os.getenv("MAIL_SERVER")
+    mail_port = _get_int("MAIL_PORT", 587)
+    mail_username = os.getenv("MAIL_USERNAME")
+    mail_password = os.getenv("MAIL_PASSWORD")
+    mail_use_tls = _get_bool("MAIL_USE_TLS", True)
+    mail_default_sender = os.getenv("MAIL_DEFAULT_SENDER")
+
     return Settings(
         secret_key=secret,
         jwt_secret_key=jwt_secret,
@@ -66,4 +79,10 @@ def get_settings() -> Settings:
         refresh_token_expires_days=refresh_token_days,
         refresh_cookie_secure=refresh_cookie_secure,
         refresh_cookie_samesite=refresh_cookie_samesite,
+        mail_server=mail_server,
+        mail_port=mail_port,
+        mail_username=mail_username,
+        mail_password=mail_password,
+        mail_use_tls=mail_use_tls,
+        mail_default_sender=mail_default_sender,
     )

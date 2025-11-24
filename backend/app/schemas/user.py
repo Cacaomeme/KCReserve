@@ -16,6 +16,7 @@ def serialize_user(user: User) -> dict[str, object]:
         "email": user.email,
         "displayName": display_name,
         "isAdmin": user.is_admin,
+        "receivesNotification": user.receives_notification,
         "isActive": user.is_active,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
         "updatedAt": user.updated_at.isoformat() if user.updated_at else None,

@@ -12,6 +12,7 @@ export function ProfilePage() {
   const [form, setForm] = useState({
     email: '',
     display_name: '',
+    receives_notification: false,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -21,6 +22,7 @@ export function ProfilePage() {
       setForm({
         email: user.email,
         display_name: user.display_name || '',
+        receives_notification: user.receivesNotification,
       })
     }
   }, [user])
@@ -77,6 +79,22 @@ export function ProfilePage() {
               required
             />
           </div>
+
+          {user?.isAdmin && (
+            <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                    id="receives_notification"
+                    type="checkbox"
+                    checked={form.receives_notification}
+                    onChange={(e) => setForm({ ...form, receives_notification: e.target.checked })}
+                    disabled={isSubmitting}
+                    style={{ width: 'auto' }}
+                />
+                <label htmlFor="receives_notification" style={{ marginBottom: 0 }}>
+                    新規予約申請のメール通知を受け取る
+                </label>
+            </div>
+          )}
           
           {authError && <p className="error-text">{authError}</p>}
           {successMessage && <p className="success-text" style={{ color: '#166534' }}>{successMessage}</p>}
