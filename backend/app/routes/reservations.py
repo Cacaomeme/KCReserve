@@ -13,7 +13,7 @@ from sqlalchemy import or_
 from app.database import session_scope
 from app.models.reservation import Reservation, ReservationStatus, ReservationVisibility
 from app.schemas import serialize_reservation
-from app.utils.email import send_new_reservation_notification
+from app.utils.email import send_new_reservation_notification, send_cancellation_request_notification
 
 reservations_bp = Blueprint("reservations", __name__)
 reservations_admin_bp = Blueprint("reservations_admin", __name__)
@@ -245,6 +245,9 @@ def update_reservation(reservation_id: int):
                 reservation.status = ReservationStatus.CANCELLATION_REQUESTED
                 if "cancellationReason" in payload:
                     reservation.cancellation_reason = payload["cancellationReason"]
+                
+                # Send notification email to admins
+                send_cancellation_request_notification(reservation.id)
             else:
                 return jsonify({"message": "承認済みの予約のみキャンセル申請できます"}), HTTPStatus.BAD_REQUEST
             

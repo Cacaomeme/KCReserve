@@ -77,3 +77,45 @@ def send_new_reservation_notification(reservation_id: int):
 
     thread = threading.Thread(target=_notify)
     thread.start()
+
+def send_cancellation_request_notification(reservation_id: int):
+    def _notify():
+        with session_scope() as session:
+            reservation = session.get(Reservation, reservation_id)
+            if not reservation:
+                return
+            
+            user_name = reservation.user.display_name if reservation.user else "Unknown"
+            user_email = reservation.user.email if reservation.user else "Unknown"
+            purpose = reservation.purpose
+            start = reservation.start_time
+            end = reservation.end_time
+            reason = reservation.cancellation_reason or 'なし'
+
+            admins = session.query(User).filter(
+                User.is_admin == True,
+                User.receives_notification == True
+            ).all()
+            
+            admin_emails = [admin.email for admin in admins]
+        
+        if not admin_emails:
+            return
+
+        subject = f"【KC Reserve】キャンセル申請: {purpose}"
+        body = f"""
+予約のキャンセル申請がありました。
+
+申請者: {user_name} ({user_email})
+目的: {purpose}
+日時: {start} - {end}
+キャンセル理由: {reason}
+
+管理画面から確認・承認してください。
+"""
+
+        for email in admin_emails:
+            _send_email_sync(email, subject, body)
+
+    thread = threading.Thread(target=_notify)
+    thread.start()
