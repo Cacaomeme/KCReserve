@@ -2,7 +2,7 @@ services:
   # バックエンド (Python/Flask)
   - type: web
     name: kcreserve-backend
-    env: python
+    runtime: python
     region: singapore # 日本に近いリージョン推奨
     buildCommand: "cd backend && pip install -r requirements.txt"
     startCommand: "cd backend && alembic upgrade head && gunicorn app.main:app --bind 0.0.0.0:$PORT"
@@ -31,9 +31,9 @@ services:
         sync: false
 
   # フロントエンド (React/Vite)
-  - type: static
+  - type: web
     name: kcreserve-frontend
-    env: static
+    runtime: static
     region: singapore
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: "./frontend/dist"
