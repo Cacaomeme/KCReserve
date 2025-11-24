@@ -12,8 +12,45 @@ from app.database import session_scope
 def log(msg):
     print(f"[EMAIL DEBUG] {msg}", file=sys.stdout, flush=True)
 
+def _send_email_sendgrid(to_email: str, subject: str, body: str, api_key: str, from_email: str):
+    import json
+    import urllib.request
+    import urllib.error
+
+    log("Attempting to send via SendGrid API...")
+    url = "https://api.sendgrid.com/v3/mail/send"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "personalizations": [{"to": [{"email": to_email}]}],
+        "from": {"email": from_email},
+        "subject": subject,
+        "content": [{"type": "text/plain", "value": body}]
+    }
+
+    try:
+        req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers, method='POST')
+        with urllib.request.urlopen(req) as response:
+            log(f"SendGrid response: {response.status}")
+            if 200 <= response.status < 300:
+                log(f"Email sent successfully to {to_email} via SendGrid")
+                return True
+    except urllib.error.HTTPError as e:
+        log(f"SendGrid failed: {e.code} {e.read().decode('utf-8')}")
+    except Exception as e:
+        log(f"SendGrid failed: {e}")
+    return False
+
 def _send_email_sync(to_email: str, subject: str, body: str):
     settings = get_settings()
+    
+    # Try SendGrid first if configured (Recommended for Render)
+    if settings.sendgrid_api_key:
+        if _send_email_sendgrid(to_email, subject, body, settings.sendgrid_api_key, settings.mail_default_sender or settings.mail_username):
+            return
+
     if not settings.mail_server or not settings.mail_username or not settings.mail_password:
         log("Email settings not configured. Skipping email.")
         return
