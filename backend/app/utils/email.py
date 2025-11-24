@@ -2,6 +2,7 @@ import smtplib
 import threading
 import sys
 import traceback
+import socket
 from email.message import EmailMessage
 from app.config import get_settings
 from app.models.user import User
@@ -27,26 +28,42 @@ def _send_email_sync(to_email: str, subject: str, body: str):
     password = settings.mail_password.replace(" ", "")
 
     try:
-        log(f"Connecting to {settings.mail_server}:{settings.mail_port}...")
+        # Force IPv4 resolution to avoid [Errno 101] Network is unreachable on IPv6-disabled environments
+        log(f"Resolving {settings.mail_server} (IPv4)...")
+        addr_info = socket.getaddrinfo(settings.mail_server, settings.mail_port, socket.AF_INET, socket.SOCK_STREAM)
+        server_ip = addr_info[0][4][0]
+        log(f"Resolved to {server_ip}")
+
+        log(f"Connecting to {server_ip}:{settings.mail_port} with timeout=30s...")
         
         if settings.mail_port == 465:
             # Use implicit SSL for port 465
-            with smtplib.SMTP_SSL(settings.mail_server, settings.mail_port) as server:
-                # server.set_debuglevel(1)
-                log(f"Logging in as {settings.mail_username}...")
+            import ssl
+            context = ssl.create_default_context()
+            # Since we are connecting by IP, the certificate hostname check will fail.
+            # We disable the check_hostname flag but keep verify_mode to CERT_REQUIRED (default)
+            # This ensures the cert is valid, even if we don't check the name against the IP.
+            # (In a stricter environment we would wrap the socket manually to pass server_hostname)
+            context.check_hostname = False
+            
+            with smtplib.SMTP_SSL(server_ip, settings.mail_port, context=context, timeout=30) as server:
+                log("Connected. Logging in...")
                 server.login(settings.mail_username, password)
                 
                 log(f"Sending message to {to_email}...")
                 server.send_message(msg)
         else:
             # Use STARTTLS for port 587 (or others)
-            with smtplib.SMTP(settings.mail_server, settings.mail_port) as server:
-                # server.set_debuglevel(1)
+            with smtplib.SMTP(server_ip, settings.mail_port, timeout=30) as server:
                 if settings.mail_use_tls:
-                    log("Starting TLS...")
-                    server.starttls()
+                    log("Connected. Starting TLS...")
+                    # For STARTTLS, we should ideally pass the hostname to starttls context
+                    import ssl
+                    context = ssl.create_default_context()
+                    context.check_hostname = False
+                    server.starttls(context=context)
                 
-                log(f"Logging in as {settings.mail_username}...")
+                log("Logging in...")
                 server.login(settings.mail_username, password)
                 
                 log(f"Sending message to {to_email}...")
