@@ -5,19 +5,19 @@ import { fetchCalendarEvents } from '../api/reservations'
 type UseCalendarEventsOptions = {
   start: string
   end: string
-  token?: string | null
   visibility?: 'public' | 'anonymous'
+  authFingerprint?: string
 }
 
-export function useCalendarEvents({ start, end, token, visibility }: UseCalendarEventsOptions) {
+export function useCalendarEvents({ start, end, visibility, authFingerprint }: UseCalendarEventsOptions) {
+  const authKey = authFingerprint ?? 'anonymous'
   return useQuery<CalendarEvent[]>({
-    queryKey: ['calendar-events', start, end, visibility, Boolean(token)],
+    queryKey: ['calendar-events', start, end, visibility, authKey],
     queryFn: () =>
       fetchCalendarEvents({
         start,
         end,
         visibility,
-        token,
       }),
   })
 }

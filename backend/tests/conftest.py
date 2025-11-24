@@ -38,5 +38,5 @@ def _prepare_database():
 def client():
     app = create_app()
     app.config.update(TESTING=True)
-    with app.test_client() as test_client:
+    with app.test_client(use_cookies=False) as test_client:
         yield test_client

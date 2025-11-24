@@ -19,6 +19,10 @@ class Settings:
     jwt_secret_key: str
     database_url: str
     allowed_origins: list[str]
+    access_token_expires_minutes: int
+    refresh_token_expires_days: int
+    refresh_cookie_secure: bool
+    refresh_cookie_samesite: str
 
 
 @lru_cache(maxsize=1)
@@ -33,9 +37,33 @@ def get_settings() -> Settings:
     cors_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
     cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
 
+    def _get_int(name: str, default: int) -> int:
+        raw = os.getenv(name)
+        if raw is None:
+            return default
+        try:
+            return max(1, int(raw))
+        except ValueError:
+            return default
+
+    def _get_bool(name: str, default: bool) -> bool:
+        raw = os.getenv(name)
+        if raw is None:
+            return default
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+    access_token_minutes = _get_int("JWT_ACCESS_TOKEN_MINUTES", 15)
+    refresh_token_days = _get_int("JWT_REFRESH_TOKEN_DAYS", 14)
+    refresh_cookie_secure = _get_bool("JWT_REFRESH_COOKIE_SECURE", False)
+    refresh_cookie_samesite = os.getenv("JWT_REFRESH_COOKIE_SAMESITE", "Lax")
+
     return Settings(
         secret_key=secret,
         jwt_secret_key=jwt_secret,
         database_url=database_url,
         allowed_origins=cors_origins or ["http://localhost:5173"],
+        access_token_expires_minutes=access_token_minutes,
+        refresh_token_expires_days=refresh_token_days,
+        refresh_cookie_secure=refresh_cookie_secure,
+        refresh_cookie_samesite=refresh_cookie_samesite,
     )

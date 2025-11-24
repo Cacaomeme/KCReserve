@@ -1,14 +1,19 @@
 import { useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import dayjs from 'dayjs'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import { useCalendarEvents } from './hooks/useCalendarEvents'
 import './App.css'
+import { useAuth } from './context/AuthContext'
 
 const bufferInDays = 7
 
 function App() {
-  const [token, setToken] = useState('')
+  const { user, isInitializing, authError, login, logout, clearError } = useAuth()
+  const authFingerprint = user ? `${user.id}-${user.isAdmin ? 'admin' : 'member'}` : 'anonymous'
+  const [credentials, setCredentials] = useState({ email: '', password: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'public' | 'anonymous'>('all')
   const [range, setRange] = useState(() => ({
     start: dayjs().startOf('month').subtract(bufferInDays, 'day').toISOString(),
@@ -20,8 +25,8 @@ function App() {
   const { data: events = [], isLoading, isFetching, error } = useCalendarEvents({
     start: range.start,
     end: range.end,
-    token: token ? token : undefined,
     visibility: visibilityParam,
+    authFingerprint,
   })
 
   const calendarEvents = useMemo(
@@ -39,6 +44,29 @@ function App() {
     [events],
   )
 
+  const handleLogin = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!credentials.email || !credentials.password) {
+      return
+    }
+    setIsSubmitting(true)
+    try {
+      await login(credentials.email, credentials.password)
+      setCredentials((prev) => ({ ...prev, password: '' }))
+    } catch {
+      // エラーメッセージはコンテキスト側で保持
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleFieldChange = (field: 'email' | 'password', value: string) => {
+    if (authError) {
+      clearError()
+    }
+    setCredentials((prev) => ({ ...prev, [field]: value }))
+  }
+
   return (
     <div className="page">
       <header className="page-header">
@@ -46,8 +74,8 @@ function App() {
           <p className="eyebrow">KC Reserve</p>
           <h1>Hut Reservation Calendar</h1>
           <p className="subtitle">
-            The calendar shows approved bookings by default. Provide a JWT token
-            to view private details or pending requests.
+            The calendar shows approved bookings by default. Sign in to view masked details
+            or pending requests.
           </p>
         </div>
       </header>
@@ -66,14 +94,49 @@ function App() {
           </select>
         </div>
 
-        <div className="field">
-          <label htmlFor="token">JWT (optional)</label>
-          <input
-            id="token"
-            placeholder="Paste bearer token"
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-          />
+        <div className="auth-panel">
+          {user ? (
+            <div className="auth-status">
+              <p>
+                Signed in as <strong>{user.email}</strong>
+                {user.isAdmin ? ' (admin)' : ''}
+              </p>
+              <button type="button" onClick={logout} className="button ghost">
+                Log out
+              </button>
+            </div>
+          ) : (
+            <form className="auth-form" onSubmit={handleLogin}>
+              <div className="field">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={credentials.email}
+                  onChange={(event) => handleFieldChange('email', event.target.value)}
+                  disabled={isSubmitting || isInitializing}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={credentials.password}
+                  onChange={(event) => handleFieldChange('password', event.target.value)}
+                  disabled={isSubmitting || isInitializing}
+                  required
+                />
+              </div>
+              {authError ? <p className="error-text">{authError}</p> : null}
+              <button type="submit" className="button" disabled={isSubmitting || isInitializing}>
+                {isSubmitting ? 'Signing in…' : 'Sign in'}
+              </button>
+            </form>
+          )}
         </div>
 
         {isFetching && <span className="status-pill">Refreshing…</span>}

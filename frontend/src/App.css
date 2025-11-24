@@ -133,9 +133,71 @@
   color: #1e3a8a !important;
 }
 
+.auth-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  min-width: 18rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auth-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.button {
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #2563eb;
+  color: #ffffff;
+  transition: background 0.2s ease;
+}
+
+.button:hover:enabled {
+  background: #1d4ed8;
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.button.ghost {
+  background: transparent;
+  border: 1px solid #94a3b8;
+  color: #0f172a;
+}
+
+.button.ghost:hover:enabled {
+  background: #f1f5f9;
+}
+
+.error-text {
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 640px) {
   .field select,
   .field input {
     min-width: 100%;
+  }
+
+  .auth-panel {
+    width: 100%;
   }
 }

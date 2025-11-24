@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import hashlib
+import secrets
+from datetime import datetime, timedelta
 from functools import wraps
 from http import HTTPStatus
 
@@ -10,12 +12,21 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, jwt_required
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from app.config import get_settings
 from app.database import session_scope
-from app.models import User, WhitelistEntry
+from app.models import RefreshToken, User, WhitelistEntry
 from app.schemas import serialize_user, serialize_whitelist_entry
 
 auth_bp = Blueprint("auth", __name__)
 admin_bp = Blueprint("admin", __name__)
+settings = get_settings()
+
+REFRESH_COOKIE_NAME = "refreshToken"
+REFRESH_COOKIE_PATH = "/api/auth"
+
+
+def _utcnow() -> datetime:
+    return datetime.utcnow()
 
 
 def _normalize_email(raw_email: str | None) -> str:
@@ -24,6 +35,46 @@ def _normalize_email(raw_email: str | None) -> str:
 
 def _issue_token(user: User) -> str:
     return create_access_token(identity=str(user.id), additional_claims={"is_admin": user.is_admin})
+
+
+def _hash_refresh_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _mint_refresh_token(session, user: User) -> str:
+    raw_token = secrets.token_urlsafe(48)
+    token_hash = _hash_refresh_token(raw_token)
+    refresh = RefreshToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=_utcnow() + timedelta(days=settings.refresh_token_expires_days),
+        user_agent=request.headers.get("User-Agent"),
+        ip_address=request.remote_addr,
+    )
+    session.add(refresh)
+    session.flush()
+    return raw_token
+
+
+def _set_refresh_cookie(response, raw_token: str) -> None:
+    response.set_cookie(
+        REFRESH_COOKIE_NAME,
+        raw_token,
+        httponly=True,
+        secure=settings.refresh_cookie_secure,
+        samesite=settings.refresh_cookie_samesite,
+        path=REFRESH_COOKIE_PATH,
+        max_age=settings.refresh_token_expires_days * 24 * 60 * 60,
+    )
+
+
+def _clear_refresh_cookie(response) -> None:
+    response.delete_cookie(
+        REFRESH_COOKIE_NAME,
+        path=REFRESH_COOKIE_PATH,
+        samesite=settings.refresh_cookie_samesite,
+        secure=settings.refresh_cookie_secure,
+    )
 
 
 def admin_required(fn):
@@ -68,11 +119,11 @@ def register():
         session.flush()
 
         token = _issue_token(user)
+        refresh_token = _mint_refresh_token(session, user)
 
-        return (
-            jsonify({"user": serialize_user(user), "accessToken": token}),
-            HTTPStatus.CREATED,
-        )
+        response = jsonify({"user": serialize_user(user), "accessToken": token})
+        _set_refresh_cookie(response, refresh_token)
+        return response, HTTPStatus.CREATED
 
 
 @auth_bp.post("/api/auth/login")
@@ -92,7 +143,71 @@ def login():
             return jsonify({"message": "アカウントが無効化されています"}), HTTPStatus.FORBIDDEN
 
         token = _issue_token(user)
-        return jsonify({"user": serialize_user(user), "accessToken": token}), HTTPStatus.OK
+        refresh_token = _mint_refresh_token(session, user)
+        response = jsonify({"user": serialize_user(user), "accessToken": token})
+        _set_refresh_cookie(response, refresh_token)
+        return response, HTTPStatus.OK
+
+
+@auth_bp.post("/api/auth/refresh")
+def refresh_token():
+    raw_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if not raw_token:
+        response = jsonify({"message": "リフレッシュトークンがありません"})
+        _clear_refresh_cookie(response)
+        return response, HTTPStatus.UNAUTHORIZED
+
+    token_hash = _hash_refresh_token(raw_token)
+    now = _utcnow()
+
+    with session_scope() as session:
+        stored = (
+            session.query(RefreshToken)
+            .filter(
+                RefreshToken.token_hash == token_hash,
+                RefreshToken.revoked_at.is_(None),
+                RefreshToken.expires_at > now,
+            )
+            .first()
+        )
+
+        if stored is None:
+            response = jsonify({"message": "リフレッシュトークンが無効です"})
+            _clear_refresh_cookie(response)
+            return response, HTTPStatus.UNAUTHORIZED
+
+        user = session.get(User, stored.user_id)
+        if user is None or not user.is_active:
+            stored.revoked_at = now
+            response = jsonify({"message": "ユーザーが無効です"})
+            _clear_refresh_cookie(response)
+            return response, HTTPStatus.FORBIDDEN
+
+        stored.revoked_at = now
+        new_refresh_token = _mint_refresh_token(session, user)
+        token = _issue_token(user)
+        response = jsonify({"user": serialize_user(user), "accessToken": token})
+        _set_refresh_cookie(response, new_refresh_token)
+        return response, HTTPStatus.OK
+
+
+@auth_bp.post("/api/auth/logout")
+def logout():
+    raw_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if raw_token:
+        token_hash = _hash_refresh_token(raw_token)
+        with session_scope() as session:
+            stored = (
+                session.query(RefreshToken)
+                .filter(RefreshToken.token_hash == token_hash, RefreshToken.revoked_at.is_(None))
+                .first()
+            )
+            if stored is not None:
+                stored.revoked_at = _utcnow()
+
+    response = jsonify({"message": "ログアウトしました"})
+    _clear_refresh_cookie(response)
+    return response, HTTPStatus.OK
 
 
 @auth_bp.get("/api/auth/me")

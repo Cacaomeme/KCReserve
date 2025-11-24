@@ -1,5 +1,7 @@
 """Application factory for the mountain hut reservation backend."""
 
+from datetime import timedelta
+
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -25,6 +27,8 @@ def create_app() -> Flask:
         SQLALCHEMY_DATABASE_URI=settings.database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         JWT_SECRET_KEY=settings.jwt_secret_key,
+        JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=settings.access_token_expires_minutes),
+        JWT_TOKEN_LOCATION=("headers",),
     )
 
     CORS(app, origins=settings.allowed_origins, supports_credentials=True)

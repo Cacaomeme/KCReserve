@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
+from http.cookies import SimpleCookie
+
 from tests.utils import register_user_and_get_token, seed_whitelist
+
+
+def _extract_refresh_cookie(response) -> str | None:
+    cookie = SimpleCookie()
+    for header in response.headers.getlist("Set-Cookie"):
+        cookie.load(header)
+    morsel = cookie.get("refreshToken")
+    return morsel.value if morsel else None
 
 
 def test_registration_requires_whitelist(client) -> None:
@@ -25,6 +35,7 @@ def test_register_and_login_flow(client) -> None:
     )
 
     assert register_response.status_code == 201
+    assert _extract_refresh_cookie(register_response) is not None
     register_body = register_response.get_json()
     assert register_body["user"]["email"] == email
     assert register_body["user"]["isAdmin"] is True
@@ -35,6 +46,8 @@ def test_register_and_login_flow(client) -> None:
         json={"email": email, "password": password},
     )
     assert login_response.status_code == 200
+    refresh_cookie = _extract_refresh_cookie(login_response)
+    assert refresh_cookie is not None
     access_token = login_response.get_json()["accessToken"]
 
     me_response = client.get(
@@ -45,6 +58,50 @@ def test_register_and_login_flow(client) -> None:
     me_body = me_response.get_json()
     assert me_body["user"]["email"] == email
     assert me_body["claims"]["isAdmin"] is True
+
+    # Refresh should rotate the cookie and return a new access token.
+    refresh_response = client.post(
+        "/api/auth/refresh",
+        environ_overrides={"HTTP_COOKIE": f"refreshToken={refresh_cookie}"},
+    )
+    assert refresh_response.status_code == 200
+    new_cookie = _extract_refresh_cookie(refresh_response)
+    assert new_cookie is not None and new_cookie != refresh_cookie
+    new_access_token = refresh_response.get_json()["accessToken"]
+    assert new_access_token != access_token
+
+    # Old cookie should now be invalid.
+    invalid_refresh = client.post(
+        "/api/auth/refresh",
+        environ_overrides={"HTTP_COOKIE": f"refreshToken={refresh_cookie}"},
+    )
+    assert invalid_refresh.status_code == 401
+
+
+def test_logout_revokes_refresh_token(client) -> None:
+    email = "member@example.com"
+    password = "Secret123!"
+    seed_whitelist(email, is_admin=False)
+
+    login_response = client.post(
+        "/api/auth/register",
+        json={"email": email, "password": password},
+    )
+    assert login_response.status_code == 201
+    refresh_cookie = _extract_refresh_cookie(login_response)
+    assert refresh_cookie is not None
+
+    logout_response = client.post(
+        "/api/auth/logout",
+        environ_overrides={"HTTP_COOKIE": f"refreshToken={refresh_cookie}"},
+    )
+    assert logout_response.status_code == 200
+    # Subsequent refresh attempts fail because the token has been revoked + cookie cleared.
+    failed_refresh = client.post(
+        "/api/auth/refresh",
+        environ_overrides={"HTTP_COOKIE": f"refreshToken={refresh_cookie}"},
+    )
+    assert failed_refresh.status_code in {401, 403}
 
 
 def test_admin_whitelist_requires_admin_claim(client) -> None:
