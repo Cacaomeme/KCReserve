@@ -154,6 +154,7 @@ def send_new_reservation_notification(reservation_id: int):
 詳細: {desc}
 
 管理画面から確認・承認してください。
+https://kcreserve-frontend.onrender.com/
 """
 
             for email in admin_emails:
@@ -204,6 +205,7 @@ def send_cancellation_request_notification(reservation_id: int):
 キャンセル理由: {reason}
 
 管理画面から確認・承認してください。
+https://kcreserve-frontend.onrender.com/
 """
 
             for email in admin_emails:
