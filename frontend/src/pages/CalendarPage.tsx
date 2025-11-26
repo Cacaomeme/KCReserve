@@ -278,7 +278,7 @@ export function CalendarPage() {
         {isFetching && <span className="status-pill">{t('app.refreshing')}</span>}
       </section>
 
-      <section className="calendar-card">
+      <section className="calendar-card" style={{ position: 'relative' }}>
         {error ? (
           <div className="error-banner">
             <strong>{t('app.error')}</strong>
@@ -286,10 +286,25 @@ export function CalendarPage() {
           </div>
         ) : null}
 
-        {isLoading ? (
-          <div className="loading">{t('app.loading')}</div>
-        ) : (
-          <FullCalendar
+        {isLoading && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(255,255,255,0.7)',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '1rem'
+          }}>
+            <div className="loading">{t('app.loading')}</div>
+          </div>
+        )}
+
+        <FullCalendar
             plugins={[dayGridPlugin]}
             initialView="dayGridMonth"
             locale={jaLocale}
@@ -316,7 +331,6 @@ export function CalendarPage() {
               setIsEditing(false)
             }}
           />
-        )}
 
         <footer className="legend">
           <span className="legend-item status-approved">{t('event.status.approved')}</span>
