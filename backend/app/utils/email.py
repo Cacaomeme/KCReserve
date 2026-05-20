@@ -13,9 +13,52 @@ from app.database import session_scope
 def log(msg):
     print(f"[EMAIL DEBUG] {msg}", file=sys.stdout, flush=True)
 
+def _send_email_gas(to_email: str, subject: str, body: str, webhook_url: str, webhook_secret: str):
+    """Send email via Google Apps Script webhook (HTTP POST)."""
+    import json
+    import urllib.request
+    import urllib.error
+
+    log("Attempting to send via Google Apps Script webhook...")
+    data = {
+        "to": to_email,
+        "subject": subject,
+        "body": body,
+        "secret": webhook_secret,
+    }
+
+    try:
+        req = urllib.request.Request(
+            webhook_url,
+            data=json.dumps(data).encode('utf-8'),
+            headers={"Content-Type": "application/json"},
+            method='POST',
+        )
+        with urllib.request.urlopen(req, timeout=30) as response:
+            resp_body = response.read().decode('utf-8')
+            log(f"GAS response: {response.status} {resp_body}")
+            result = json.loads(resp_body)
+            if result.get("status") == "ok":
+                log(f"Email sent successfully to {to_email} via GAS")
+                return True
+            else:
+                log(f"GAS returned error: {result}")
+    except urllib.error.HTTPError as e:
+        log(f"GAS webhook failed: {e.code} {e.read().decode('utf-8')}")
+    except Exception as e:
+        log(f"GAS webhook failed: {e}")
+    return False
+
 def _send_email_sync(to_email: str, subject: str, body: str):
     settings = get_settings()
 
+    # Try Google Apps Script webhook first (works on Render free plan)
+    if settings.gas_webhook_url and settings.gas_webhook_secret:
+        if _send_email_gas(to_email, subject, body, settings.gas_webhook_url, settings.gas_webhook_secret):
+            return
+        log("GAS webhook failed, falling back to SMTP...")
+
+    # Fallback: direct SMTP (works locally, blocked on Render free plan)
     if not settings.mail_server or not settings.mail_username or not settings.mail_password:
         log("Email settings not configured. Skipping email.")
         return

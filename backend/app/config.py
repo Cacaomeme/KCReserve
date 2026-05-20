@@ -29,6 +29,8 @@ class Settings:
     mail_password: str | None
     mail_use_tls: bool
     mail_default_sender: str | None
+    gas_webhook_url: str | None
+    gas_webhook_secret: str | None
 
 
 @lru_cache(maxsize=1)
@@ -69,6 +71,8 @@ def get_settings() -> Settings:
     mail_password = os.getenv("MAIL_PASSWORD")
     mail_use_tls = _get_bool("MAIL_USE_TLS", True)
     mail_default_sender = os.getenv("MAIL_DEFAULT_SENDER")
+    gas_webhook_url = os.getenv("GAS_WEBHOOK_URL")
+    gas_webhook_secret = os.getenv("GAS_WEBHOOK_SECRET")
 
     return Settings(
         secret_key=secret,
@@ -85,4 +89,6 @@ def get_settings() -> Settings:
         mail_password=mail_password,
         mail_use_tls=mail_use_tls,
         mail_default_sender=mail_default_sender,
+        gas_webhook_url=gas_webhook_url,
+        gas_webhook_secret=gas_webhook_secret,
     )
