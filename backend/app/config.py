@@ -29,7 +29,6 @@ class Settings:
     mail_password: str | None
     mail_use_tls: bool
     mail_default_sender: str | None
-    sendgrid_api_key: str | None
 
 
 @lru_cache(maxsize=1)
@@ -70,7 +69,6 @@ def get_settings() -> Settings:
     mail_password = os.getenv("MAIL_PASSWORD")
     mail_use_tls = _get_bool("MAIL_USE_TLS", True)
     mail_default_sender = os.getenv("MAIL_DEFAULT_SENDER")
-    sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
 
     return Settings(
         secret_key=secret,
@@ -87,5 +85,4 @@ def get_settings() -> Settings:
         mail_password=mail_password,
         mail_use_tls=mail_use_tls,
         mail_default_sender=mail_default_sender,
-        sendgrid_api_key=sendgrid_api_key,
     )
