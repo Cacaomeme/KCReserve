@@ -42,7 +42,6 @@
   max-width: 1200px;
   margin: 0 auto;
   gap: 0.5rem;
-  overflow: hidden;
 }
 
 .navbar-brand {
@@ -242,8 +241,14 @@
 }
 
 .field select,
-.field input {
-  min-width: 16rem;
+.field input[type="text"],
+.field input[type="email"],
+.field input[type="password"],
+.field input[type="number"],
+.field input[type="datetime-local"],
+.field input[type="date"] {
+  min-width: 0;
+  width: 100%;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 0.5rem 0.75rem;
@@ -251,6 +256,7 @@
   background: var(--color-surface);
   color: var(--color-text);
   transition: border-color var(--transition-fast);
+  box-sizing: border-box;
 }
 
 .field select:focus,
@@ -934,10 +940,6 @@
     margin-bottom: 0.5rem;
   }
 
-  .field select,
-  .field input {
-    min-width: 100%;
-  }
 
   .modal-content {
     max-height: 90vh;
