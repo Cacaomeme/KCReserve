@@ -109,7 +109,6 @@ export function CalendarPage() {
 
   // Confirm / Toast state
   const [confirmState, setConfirmState] = useState<{ title: string; message?: string; confirmLabel: string; confirmVariant?: string; onConfirm: () => void; children?: React.ReactNode } | null>(null)
-  const [cancellationReason, setCancellationReason] = useState('')
   const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
   const toastIdRef = useRef(0)
 
@@ -314,8 +313,8 @@ export function CalendarPage() {
                     className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                   >
-                    <span className="avatar">{(user.displayName || user.email)[0].toUpperCase()}</span>
-                    <span>{user.displayName || user.email.split('@')[0]}</span>
+                    <span className="avatar">{(user.display_name || user.email)[0].toUpperCase()}</span>
+                    <span>{user.display_name || user.email.split('@')[0]}</span>
                     <span className="chevron">▼</span>
                   </button>
 
