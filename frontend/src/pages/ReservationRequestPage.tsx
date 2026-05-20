@@ -40,9 +40,11 @@ export function ReservationRequestPage() {
       setIsSubmitting(false)
     }
   }
+  const now = new Date().toISOString().slice(0, 16)
 
   return (
     <div className="page">
+      <div className="page-body">
       <header className="page-header">
         <h1>予約申請</h1>
       </header>
@@ -54,6 +56,7 @@ export function ReservationRequestPage() {
               type="datetime-local" 
               value={form.startTime}
               onChange={e => setForm({...form, startTime: e.target.value})}
+              min={now}
               required
             />
           </div>
@@ -63,6 +66,7 @@ export function ReservationRequestPage() {
               type="datetime-local" 
               value={form.endTime}
               onChange={e => setForm({...form, endTime: e.target.value})}
+              min={form.startTime || now}
               required
             />
           </div>
@@ -132,6 +136,7 @@ export function ReservationRequestPage() {
           </button>
         </form>
       </section>
+      </div>
     </div>
   )
 }

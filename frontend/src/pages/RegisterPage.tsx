@@ -66,6 +66,7 @@ export function RegisterPage() {
 
   return (
     <div className="page">
+      <div className="page-body">
       <header className="page-header">
         <div>
           <p className="eyebrow">KC Reserve</p>
@@ -160,6 +161,7 @@ export function RegisterPage() {
           </button>
         </div>
       </section>
+      </div>
     </div>
   )
 }

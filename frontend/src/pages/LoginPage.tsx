@@ -54,6 +54,7 @@ export function LoginPage() {
 
   return (
     <div className="page">
+      <div className="page-body">
       <header className="page-header">
         <div>
           <p className="eyebrow">KC Reserve</p>
@@ -125,6 +126,7 @@ export function LoginPage() {
           </button>
         </div>
       </section>
+      </div>
     </div>
   )
 }

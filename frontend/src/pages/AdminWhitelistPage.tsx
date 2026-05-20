@@ -71,6 +71,7 @@ export function AdminWhitelistPage() {
 
   return (
     <div className="page">
+      <div className="page-body">
       <header className="page-header">
         <div>
           <p className="eyebrow">KC Reserve</p>
@@ -166,9 +167,9 @@ export function AdminWhitelistPage() {
                           {t('admin.whitelist.isAdmin')}
                         </label>
                       ) : entry.is_admin_default ? (
-                        <span className="badge admin">{t('auth.admin')}</span>
+                        <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: 'var(--color-primary-light)', color: 'var(--color-primary)', fontWeight: 600 }}>{t('auth.admin')}</span>
                       ) : (
-                        <span className="badge member">{t('admin.whitelist.member')}</span>
+                        <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: 'var(--color-border)', color: 'var(--color-text-secondary)', fontWeight: 600 }}>{t('admin.whitelist.member')}</span>
                       )}
                     </td>
                     <td>
@@ -209,6 +210,7 @@ export function AdminWhitelistPage() {
           </div>
         )}
       </section>
+      </div>
     </div>
   )
 }

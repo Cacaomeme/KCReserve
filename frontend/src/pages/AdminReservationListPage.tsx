@@ -131,7 +131,7 @@ export function AdminReservationListPage() {
     }
   }
 
-  if (loading) return <div>Loading...</div>
+  if (loading) return <div className="page"><div className="page-body"><div className="loading"><div className="spinner" /><p>読み込み中...</p></div></div></div>
 
   const pendingReservations = reservations.filter(r => r.status === 'pending')
   const cancellationRequests = reservations.filter(r => r.status === 'cancellation_requested')
@@ -139,6 +139,7 @@ export function AdminReservationListPage() {
 
   return (
     <div className="page">
+      <div className="page-body">
       <header className="page-header">
         <h1>予約申請一覧</h1>
         <button className="button ghost" onClick={() => navigate('/')}>戻る</button>
@@ -311,6 +312,7 @@ export function AdminReservationListPage() {
             ))}
         </div>
       </section>
+      </div>
     </div>
   )
 }

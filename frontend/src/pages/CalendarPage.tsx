@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -11,6 +11,14 @@ import { updateReservation, deleteReservation, requestCancellation, getPendingCo
 import { getVideoUrl } from '../api/systemSettings'
 
 const bufferInDays = 7
+
+const STATUS_LABELS: Record<string, string> = {
+  approved: '承認済み',
+  pending: '申請中',
+  rejected: '却下',
+  cancelled: 'キャンセル済み',
+  cancellation_requested: 'キャンセル申請中',
+}
 
 function getEmbedUrl(url: string): string {
   try {
@@ -33,6 +41,46 @@ function getEmbedUrl(url: string): string {
   }
 }
 
+/* ---- Confirm Dialog Component ---- */
+function ConfirmDialog({ title, message, confirmLabel, confirmVariant, onConfirm, onCancel, children }: {
+  title: string
+  message?: string
+  confirmLabel: string
+  confirmVariant?: string
+  onConfirm: () => void
+  onCancel: () => void
+  children?: React.ReactNode
+}) {
+  return (
+    <div className="confirm-dialog-backdrop" onClick={onCancel}>
+      <div className="confirm-dialog" onClick={e => e.stopPropagation()}>
+        <h3>{title}</h3>
+        {message && <p>{message}</p>}
+        {children}
+        <div className="confirm-actions">
+          <button className="button ghost" onClick={onCancel}>キャンセル</button>
+          <button className={`button ${confirmVariant || ''}`} onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ---- Toast Component ---- */
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3500)
+    return () => clearTimeout(timer)
+  }, [onClose])
+
+  return (
+    <div className={`toast ${type}`}>
+      <span>{type === 'success' ? '✓' : '✕'}</span>
+      <span>{message}</span>
+    </div>
+  )
+}
+
 export function CalendarPage() {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
@@ -47,6 +95,46 @@ export function CalendarPage() {
   const [pendingCount, setPendingCount] = useState(0)
   const [videoUrl, setVideoUrl] = useState('')
 
+  // UI state
+  const [selectedEvent, setSelectedEvent] = useState<any>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingDescription, setEditingDescription] = useState('')
+  const [editingDisplayMessage, setEditingDisplayMessage] = useState('')
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [videoOpen, setVideoOpen] = useState(() => {
+    const stored = localStorage.getItem('kcr-video-open')
+    return stored !== 'false' // Default open
+  })
+
+  // Confirm / Toast state
+  const [confirmState, setConfirmState] = useState<{ title: string; message?: string; confirmLabel: string; confirmVariant?: string; onConfirm: () => void; children?: React.ReactNode } | null>(null)
+  const [cancellationReason, setCancellationReason] = useState('')
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
+  const toastIdRef = useRef(0)
+
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  const addToast = (message: string, type: 'success' | 'error') => {
+    const id = ++toastIdRef.current
+    setToasts(prev => [...prev, { id, message, type }])
+  }
+
+  const removeToast = (id: number) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }
+
+  // Close user menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   const refreshPendingCount = () => {
     if (user?.isAdmin) {
       getPendingCount().then(setPendingCount).catch(console.error)
@@ -59,10 +147,17 @@ export function CalendarPage() {
 
   useEffect(() => {
     refreshPendingCount()
-    // Poll every 30 seconds to keep the badge updated
     const interval = setInterval(refreshPendingCount, 30000)
     return () => clearInterval(interval)
   }, [user])
+
+  const toggleVideo = () => {
+    setVideoOpen(prev => {
+      const next = !prev
+      localStorage.setItem('kcr-video-open', String(next))
+      return next
+    })
+  }
 
   const visibilityParam = visibilityFilter === 'all' ? undefined : visibilityFilter
 
@@ -73,11 +168,6 @@ export function CalendarPage() {
     authFingerprint,
   })
 
-  const [selectedEvent, setSelectedEvent] = useState<any>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editingDescription, setEditingDescription] = useState('')
-  const [editingDisplayMessage, setEditingDisplayMessage] = useState('')
-
   const calendarEvents = useMemo(
     () =>
       events.map((event) => ({
@@ -87,7 +177,6 @@ export function CalendarPage() {
           (event.visibility === 'anonymous' ? t('event.reservedAnonymous') : t('event.reserved')),
         start: event.start ?? undefined,
         end: event.end ?? undefined,
-        // allDay: true, // Remove this to show time
         classNames: ['calendar-event', `status-${event.status}`],
         extendedProps: {
             id: event.id,
@@ -128,304 +217,403 @@ export function CalendarPage() {
         })
         refetch()
         refreshPendingCount()
+        addToast('予約を更新しました', 'success')
     } catch (e) {
-        alert('更新に失敗しました')
+        addToast('更新に失敗しました', 'error')
     }
   }
 
-  const handleDelete = async () => {
-    if (!window.confirm('本当にこの予約を削除しますか？')) {
-      return
-    }
-    try {
-      await deleteReservation(selectedEvent.extendedProps.id)
-      setSelectedEvent(null)
-      refetch()
-      refreshPendingCount()
-    } catch (e: any) {
-      const message = e.response?.data?.message || e.message || '削除に失敗しました'
-      alert(`エラー: ${message}`)
-    }
+  const handleDelete = () => {
+    setConfirmState({
+      title: '予約を削除しますか？',
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除',
+      confirmVariant: 'danger',
+      onConfirm: async () => {
+        setConfirmState(null)
+        try {
+          await deleteReservation(selectedEvent.extendedProps.id)
+          setSelectedEvent(null)
+          refetch()
+          refreshPendingCount()
+          addToast('予約を削除しました', 'success')
+        } catch (e: any) {
+          const message = e.response?.data?.message || e.message || '削除に失敗しました'
+          addToast(`エラー: ${message}`, 'error')
+        }
+      }
+    })
   }
 
-  const handleRequestCancellation = async () => {
-    const reason = window.prompt('キャンセル申請の理由を入力してください')
-    if (reason === null) return // Cancelled prompt
-
-    if (!window.confirm('この予約のキャンセルを申請しますか？')) {
-      return
-    }
-    try {
-      await requestCancellation(selectedEvent.extendedProps.id, reason)
-      setSelectedEvent(null)
-      refetch()
-      refreshPendingCount()
-      alert('キャンセル申請を行いました')
-    } catch (e: any) {
-      const message = e.response?.data?.message || e.message || '申請に失敗しました'
-      alert(`エラー: ${message}`)
-    }
+  const handleRequestCancellation = () => {
+    setCancellationReason('')
+    setConfirmState({
+      title: 'キャンセルを申請しますか？',
+      confirmLabel: 'キャンセル申請',
+      confirmVariant: 'warning',
+      children: (
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+            キャンセル理由
+          </label>
+          <textarea
+            id="cancellation-reason-input"
+            rows={3}
+            style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.9rem' }}
+            placeholder="キャンセルの理由を入力してください"
+          />
+        </div>
+      ),
+      onConfirm: async () => {
+        const textarea = document.getElementById('cancellation-reason-input') as HTMLTextAreaElement
+        const reason = textarea?.value || ''
+        setConfirmState(null)
+        try {
+          await requestCancellation(selectedEvent.extendedProps.id, reason)
+          setSelectedEvent(null)
+          refetch()
+          refreshPendingCount()
+          addToast('キャンセル申請を送信しました', 'success')
+        } catch (e: any) {
+          const message = e.response?.data?.message || e.message || '申請に失敗しました'
+          addToast(`エラー: ${message}`, 'error')
+        }
+      }
+    })
   }
+
+  const closeMobileMenu = () => setMobileMenuOpen(false)
 
   return (
     <div className="page">
-      <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <p className="eyebrow">KC Reserve</p>
-          <h1>{t('app.title')}</h1>
-          <p className="subtitle">
-            {/* {t('app.subtitle')} */}
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-                <button className="button large" onClick={() => navigate('/reservations/new')}>予約申請</button>
-                {user?.isAdmin && (
-                    <button className="button secondary large" onClick={() => navigate('/admin/reservations')} style={{ position: 'relative' }}>
-                    申請一覧
-                    {pendingCount > 0 && (
-                        <span style={{
-                        position: 'absolute',
-                        top: '-8px',
-                        right: '-8px',
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        borderRadius: '50%',
-                        width: '20px',
-                        height: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                        }}>
-                        {pendingCount}
-                        </span>
-                    )}
-                    </button>
-                )}
+      {/* ---- Navbar ---- */}
+      <nav className="navbar">
+        <div className="navbar-inner">
+          <span className="navbar-brand">
+            <span className="navbar-brand-icon">🏔</span>
+            KC Reserve
+          </span>
+
+          <div className="navbar-actions">
+            {/* Desktop actions */}
+            <div className="desktop-only" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <button className="button large" onClick={() => navigate('/reservations/new')}>
+                ＋ 予約申請
+              </button>
+              {user?.isAdmin && (
+                <button className="button secondary large" onClick={() => navigate('/admin/reservations')} style={{ position: 'relative' }}>
+                  申請一覧
+                  {pendingCount > 0 && <span className="badge">{pendingCount}</span>}
+                </button>
+              )}
+
+              {/* User dropdown */}
+              {user && (
+                <div className="user-menu" ref={userMenuRef}>
+                  <button
+                    className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  >
+                    <span className="avatar">{(user.displayName || user.email)[0].toUpperCase()}</span>
+                    <span>{user.displayName || user.email.split('@')[0]}</span>
+                    <span className="chevron">▼</span>
+                  </button>
+
+                  {userMenuOpen && (
+                    <div className="user-menu-dropdown">
+                      <div className="menu-header">
+                        {user.email}
+                        {user.isAdmin && <span style={{ marginLeft: '0.25rem', fontSize: '0.75rem', background: 'var(--color-primary-light)', color: 'var(--color-primary)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>管理者</span>}
+                      </div>
+                      <button className="menu-item" onClick={() => { navigate('/profile'); setUserMenuOpen(false) }}>
+                        👤 {t('auth.editProfile')}
+                      </button>
+                      {user.isAdmin && (
+                        <button className="menu-item" onClick={() => { navigate('/admin/whitelist'); setUserMenuOpen(false) }}>
+                          📋 {t('admin.editWhitelist')}
+                        </button>
+                      )}
+                      <div className="menu-divider" />
+                      <button className="menu-item danger" onClick={() => { logout(); setUserMenuOpen(false) }}>
+                        🚪 {t('auth.signOut')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {user && (
-                <div className="auth-panel" style={{ minWidth: 'auto', padding: '0.75rem', marginBottom: 0 }}>
-                    <div className="auth-status">
-                        <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                            {t('auth.signedInAs', { email: user.email })}
-                            {user.isAdmin ? ` ${t('auth.admin')}` : ''}
-                        </p>
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                            {user.isAdmin && (
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/admin/whitelist')}
-                                    className="button secondary"
-                                    style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                                >
-                                    {t('admin.editWhitelist')}
-                                </button>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => navigate('/profile')}
-                                className="button secondary"
-                                style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                            >
-                                {t('auth.editProfile')}
-                            </button>
-                            <button 
-                                type="button" 
-                                onClick={logout} 
-                                className="button ghost"
-                                style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                            >
-                                {t('auth.signOut')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Mobile hamburger */}
+            <button className="navbar-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? '✕' : '☰'}
+            </button>
+          </div>
         </div>
-      </header>
+      </nav>
 
-      <section className="video-section">
-        <h2 style={{ marginTop: 0, fontSize: '1.25rem', color: '#475569' }}>山小屋の利用方法</h2>
-        <div className="video-container">
-          {videoUrl && (
-            <iframe 
-                src={getEmbedUrl(videoUrl)} 
-                title="YouTube video player" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowFullScreen
-            ></iframe>
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="mobile-menu">
+          {user && (
+            <div className="mobile-user-info">
+              {user.email}
+              {user.isAdmin && <span style={{ marginLeft: '0.25rem', fontSize: '0.75rem', background: 'var(--color-primary-light)', color: 'var(--color-primary)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>管理者</span>}
+            </div>
           )}
+          <button className="mobile-menu-item" onClick={() => { navigate('/reservations/new'); closeMobileMenu() }}>
+            ＋ 予約申請
+          </button>
+          {user?.isAdmin && (
+            <button className="mobile-menu-item" onClick={() => { navigate('/admin/reservations'); closeMobileMenu() }}>
+              📋 申請一覧 {pendingCount > 0 && <span className="badge" style={{ position: 'static', marginLeft: '0.25rem' }}>{pendingCount}</span>}
+            </button>
+          )}
+          <button className="mobile-menu-item" onClick={() => { navigate('/profile'); closeMobileMenu() }}>
+            👤 {t('auth.editProfile')}
+          </button>
+          {user?.isAdmin && (
+            <button className="mobile-menu-item" onClick={() => { navigate('/admin/whitelist'); closeMobileMenu() }}>
+              📋 {t('admin.editWhitelist')}
+            </button>
+          )}
+          <div className="mobile-menu-divider" />
+          <button className="mobile-menu-item danger" onClick={() => { logout(); closeMobileMenu() }}>
+            🚪 {t('auth.signOut')}
+          </button>
         </div>
-      </section>
+      )}
 
-      <section className="controls">
-        <div className="field">
-          <label htmlFor="visibility">{t('filters.label')}</label>
-          <select
-            id="visibility"
-            value={visibilityFilter}
-            onChange={(event) => setVisibilityFilter(event.target.value as typeof visibilityFilter)}
-          >
-            <option value="all">{t('filters.all')}</option>
-            <option value="public">{t('filters.public')}</option>
-            <option value="anonymous">{t('filters.anonymous')}</option>
-          </select>
-        </div>
-
-        {isFetching && <span className="status-pill">{t('app.refreshing')}</span>}
-      </section>
-
-      <section className="calendar-card" style={{ position: 'relative' }}>
-        {error ? (
-          <div className="error-banner">
-            <strong>{t('app.error')}</strong>
-            <span>{(error as Error).message}</span>
+      {/* ---- Page Body ---- */}
+      <div className="page-body">
+        {/* Video Section (collapsible) */}
+        <section className="video-section">
+          <button className="video-toggle" onClick={toggleVideo}>
+            <span>📹 山小屋の利用方法</span>
+            <span className={`toggle-icon ${videoOpen ? 'open' : ''}`}>▼</span>
+          </button>
+          <div className={`video-body ${videoOpen ? 'expanded' : 'collapsed'}`}>
+            <div className="video-container">
+              {videoUrl && (
+                <iframe 
+                    src={getEmbedUrl(videoUrl)} 
+                    title="YouTube video player" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen
+                ></iframe>
+              )}
+            </div>
           </div>
-        ) : null}
+        </section>
 
-        {isLoading && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(255,255,255,0.7)',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '1rem'
-          }}>
-            <div className="loading">{t('app.loading')}</div>
+        {/* Filter & Status */}
+        <section className="controls">
+          <div className="field">
+            <label htmlFor="visibility">{t('filters.label')}</label>
+            <select
+              id="visibility"
+              value={visibilityFilter}
+              onChange={(event) => setVisibilityFilter(event.target.value as typeof visibilityFilter)}
+            >
+              <option value="all">{t('filters.all')}</option>
+              <option value="public">{t('filters.public')}</option>
+              <option value="anonymous">{t('filters.anonymous')}</option>
+            </select>
           </div>
-        )}
 
-        <FullCalendar
-            plugins={[dayGridPlugin]}
-            initialView="dayGridMonth"
-            locale={jaLocale}
-            height="auto"
-            events={calendarEvents}
-            displayEventTime={false}
-            datesSet={(info) => {
-              const paddedStart = dayjs(info.startStr).subtract(bufferInDays, 'day').toISOString()
-              const paddedEnd = dayjs(info.endStr).add(bufferInDays, 'day').toISOString()
-              setRange((current) =>
-                current.start === paddedStart && current.end === paddedEnd
-                  ? current
-                  : { start: paddedStart, end: paddedEnd },
-              )
-            }}
-            headerToolbar={{ start: 'title', center: '', end: 'today prev,next' }}
-            eventClick={(info) => {
-              setSelectedEvent({
-                title: info.event.title,
-                start: info.event.start,
-                end: info.event.end,
-                extendedProps: info.event.extendedProps
-              })
-              setIsEditing(false)
-            }}
-          />
+          {isFetching && <span className="status-pill">🔄 {t('app.refreshing')}</span>}
+        </section>
 
-        <footer className="legend">
-          <span className="legend-item status-approved">{t('event.status.approved')}</span>
-          <span className="legend-item status-pending">{t('event.status.pending')}</span>
-          <span className="legend-item status-rejected">{t('event.status.rejected')}</span>
-          <span className="legend-item status-cancelled">{t('event.status.cancelled')}</span>
-        </footer>
-      </section>
+        {/* Calendar */}
+        <section className="calendar-card" style={{ position: 'relative' }}>
+          {error ? (
+            <div className="error-banner">
+              <strong>{t('app.error')}</strong>
+              <span>{(error as Error).message}</span>
+            </div>
+          ) : null}
 
+          {isLoading && (
+            <div className="loading-overlay">
+              <div className="spinner" />
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>読み込み中...</span>
+            </div>
+          )}
+
+          <FullCalendar
+              plugins={[dayGridPlugin]}
+              initialView="dayGridMonth"
+              locale={jaLocale}
+              height="auto"
+              events={calendarEvents}
+              displayEventTime={false}
+              datesSet={(info) => {
+                const paddedStart = dayjs(info.startStr).subtract(bufferInDays, 'day').toISOString()
+                const paddedEnd = dayjs(info.endStr).add(bufferInDays, 'day').toISOString()
+                setRange((current) =>
+                  current.start === paddedStart && current.end === paddedEnd
+                    ? current
+                    : { start: paddedStart, end: paddedEnd },
+                )
+              }}
+              headerToolbar={{ start: 'title', center: '', end: 'today prev,next' }}
+              eventClick={(info) => {
+                setSelectedEvent({
+                  title: info.event.title,
+                  start: info.event.start,
+                  end: info.event.end,
+                  extendedProps: info.event.extendedProps
+                })
+                setIsEditing(false)
+              }}
+            />
+
+          <footer className="legend">
+            <span className="legend-item status-approved">{t('event.status.approved')}</span>
+            <span className="legend-item status-pending">{t('event.status.pending')}</span>
+            <span className="legend-item status-rejected">{t('event.status.rejected')}</span>
+            <span className="legend-item status-cancelled">{t('event.status.cancelled')}</span>
+          </footer>
+        </section>
+      </div>
+
+      {/* ---- Reservation Detail Modal ---- */}
       {selectedEvent && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }} onClick={() => setSelectedEvent(null)}>
-          <div style={{
-            backgroundColor: 'white', padding: '2rem', borderRadius: '8px', maxWidth: '500px', width: '90%',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-          }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ marginTop: 0 }}>予約詳細</h2>
-            <p><strong>タイトル:</strong> {selectedEvent.title}</p>
-            <p><strong>ステータス:</strong> {t(`event.status.${selectedEvent.extendedProps.status}`)}</p>
-            <p><strong>日時:</strong> {dayjs(selectedEvent.start).format('YYYY/MM/DD HH:mm')} - {dayjs(selectedEvent.end).format('YYYY/MM/DD HH:mm')}</p>
-            
-            {selectedEvent.extendedProps.userDisplayName && (
-                <p><strong>予約者:</strong> {selectedEvent.extendedProps.userDisplayName}</p>
-            )}
-            {selectedEvent.extendedProps.attendeeCount && (
-                <p><strong>人数:</strong> {selectedEvent.extendedProps.attendeeCount}人</p>
-            )}
-            
-            <div style={{marginTop: '1rem'}}>
-                <strong>詳細メッセージ:</strong>
-                {isEditing ? (
-                    <div style={{ marginTop: '0.5rem' }}>
-                        <textarea 
-                            value={editingDescription}
-                            onChange={e => setEditingDescription(e.target.value)}
-                            rows={4}
-                            style={{ width: '100%', padding: '0.5rem' }}
-                        />
-                        <div style={{ marginTop: '1rem' }}>
-                            <strong>カレンダー表示メッセージ:</strong>
-                            <input 
-                                type="text"
-                                value={editingDisplayMessage}
-                                onChange={e => setEditingDisplayMessage(e.target.value)}
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            />
-                        </div>
-                        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-                            <button className="button" onClick={handleSave}>保存</button>
-                            <button className="button ghost" onClick={() => setIsEditing(false)}>キャンセル</button>
-                        </div>
-                    </div>
-                ) : (
-                    <div>
-                        <p style={{whiteSpace: 'pre-wrap', margin: '0.5rem 0'}}>{selectedEvent.extendedProps.description || '(なし)'}</p>
-                        
-                        <div style={{marginTop: '1rem'}}>
-                            <strong>カレンダー表示メッセージ:</strong>
-                            <p style={{margin: '0.5rem 0'}}>{selectedEvent.extendedProps.displayMessage || '(なし)'}</p>
-                        </div>
-
-                        {selectedEvent.extendedProps.isOwner && (
-                            <button className="button secondary" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }} onClick={handleEdit}>編集</button>
-                        )}
-                    </div>
-                )}
+        <div className="modal-backdrop" onClick={() => setSelectedEvent(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2>予約詳細</h2>
+                <span className={`status-badge ${selectedEvent.extendedProps.status}`}>
+                  {STATUS_LABELS[selectedEvent.extendedProps.status] || selectedEvent.extendedProps.status}
+                </span>
+              </div>
+              <button className="modal-close" onClick={() => setSelectedEvent(null)}>✕</button>
             </div>
 
-            {selectedEvent.extendedProps.rejectionReason && (
-                <div style={{marginTop: '1rem', color: 'red'}}>
-                    <strong>却下理由:</strong>
-                    <p>{selectedEvent.extendedProps.rejectionReason}</p>
+            <div className="modal-body">
+              <div className="detail-row">
+                <span className="detail-label">タイトル</span>
+                <span className="detail-value">{selectedEvent.title}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">日時</span>
+                <span className="detail-value">
+                  {dayjs(selectedEvent.start).format('YYYY/MM/DD HH:mm')} 〜 {dayjs(selectedEvent.end).format('MM/DD HH:mm')}
+                </span>
+              </div>
+              {selectedEvent.extendedProps.userDisplayName && (
+                <div className="detail-row">
+                  <span className="detail-label">予約者</span>
+                  <span className="detail-value">{selectedEvent.extendedProps.userDisplayName}</span>
                 </div>
-            )}
-            {selectedEvent.extendedProps.approvalMessage && (
-                <div style={{marginTop: '1rem', color: 'green'}}>
-                    <strong>管理者からのメッセージ:</strong>
-                    <p>{selectedEvent.extendedProps.approvalMessage}</p>
+              )}
+              {selectedEvent.extendedProps.attendeeCount && (
+                <div className="detail-row">
+                  <span className="detail-label">人数</span>
+                  <span className="detail-value">{selectedEvent.extendedProps.attendeeCount}人</span>
                 </div>
-            )}
+              )}
 
-            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {/* Description / Display Message */}
+              {isEditing ? (
+                <div style={{ marginTop: '1rem' }}>
+                  <div className="field" style={{ marginBottom: '0.75rem' }}>
+                    <label>詳細メッセージ</label>
+                    <textarea 
+                      value={editingDescription}
+                      onChange={e => setEditingDescription(e.target.value)}
+                      rows={4}
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                  <div className="field" style={{ marginBottom: '0.75rem' }}>
+                    <label>カレンダー表示メッセージ</label>
+                    <input 
+                      type="text"
+                      value={editingDisplayMessage}
+                      onChange={e => setEditingDisplayMessage(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.9rem', minWidth: 'unset' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="button small" onClick={handleSave}>保存</button>
+                    <button className="button ghost small" onClick={() => setIsEditing(false)}>やめる</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <span className="detail-label">詳細メッセージ</span>
+                    <div className="message-box">
+                      {selectedEvent.extendedProps.description || '(なし)'}
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <span className="detail-label">カレンダー表示メッセージ</span>
+                    <div className="message-box">
+                      {selectedEvent.extendedProps.displayMessage || '(なし)'}
+                    </div>
+                  </div>
+                  {selectedEvent.extendedProps.isOwner && (
+                    <button className="button secondary small" style={{ marginTop: '0.5rem' }} onClick={handleEdit}>✏️ 編集</button>
+                  )}
+                </>
+              )}
+
+              {/* Rejection / Approval messages */}
+              {selectedEvent.extendedProps.rejectionReason && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <span className="detail-label">却下理由</span>
+                  <div className="message-box rejection">
+                    {selectedEvent.extendedProps.rejectionReason}
+                  </div>
+                </div>
+              )}
+              {selectedEvent.extendedProps.approvalMessage && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <span className="detail-label">管理者からのメッセージ</span>
+                  <div className="message-box approval">
+                    {selectedEvent.extendedProps.approvalMessage}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {user?.isAdmin && (
-                    <button className="button" style={{ backgroundColor: '#ef4444' }} onClick={handleDelete}>削除</button>
+                  <button className="button danger small" onClick={handleDelete}>🗑 削除</button>
                 )}
                 {selectedEvent.extendedProps.isOwner && selectedEvent.extendedProps.status === 'approved' && (
-                    <button className="button" style={{ backgroundColor: '#f59e0b' }} onClick={handleRequestCancellation}>キャンセル申請</button>
+                  <button className="button warning small" onClick={handleRequestCancellation}>キャンセル申請</button>
                 )}
               </div>
-              <button className="button" onClick={() => setSelectedEvent(null)} style={{ marginLeft: 'auto' }}>閉じる</button>
+              <button className="button ghost small" onClick={() => setSelectedEvent(null)}>閉じる</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ---- Confirm Dialog ---- */}
+      {confirmState && (
+        <ConfirmDialog
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          confirmVariant={confirmState.confirmVariant}
+          onConfirm={confirmState.onConfirm}
+          onCancel={() => setConfirmState(null)}
+        >
+          {confirmState.children}
+        </ConfirmDialog>
+      )}
+
+      {/* ---- Toast Notifications ---- */}
+      {toasts.length > 0 && (
+        <div className="toast-container">
+          {toasts.map(toast => (
+            <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
+          ))}
         </div>
       )}
     </div>

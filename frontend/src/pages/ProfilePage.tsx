@@ -45,6 +45,7 @@ export function ProfilePage() {
 
   return (
     <div className="page">
+      <div className="page-body">
       <header className="page-header">
         <div>
           <p className="eyebrow">KC Reserve</p>
@@ -104,6 +105,7 @@ export function ProfilePage() {
           </button>
         </form>
       </section>
+      </div>
     </div>
   )
 }
