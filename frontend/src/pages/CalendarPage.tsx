@@ -245,7 +245,6 @@ export function CalendarPage() {
   }
 
   const handleRequestCancellation = () => {
-    setCancellationReason('')
     setConfirmState({
       title: 'キャンセルを申請しますか？',
       confirmLabel: 'キャンセル申請',
