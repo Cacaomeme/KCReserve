@@ -27,6 +27,10 @@ export function AdminReservationListPage() {
   const [approvalMessage, setApprovalMessage] = useState<{[key: number]: string}>({})
   const [videoUrl, setVideoUrl] = useState('')
   const [newVideoUrl, setNewVideoUrl] = useState('')
+  const [exportStatus, setExportStatus] = useState('')
+  const [exportStartFrom, setExportStartFrom] = useState('')
+  const [exportStartTo, setExportStartTo] = useState('')
+  const [exportStatusFilter, setExportStatusFilter] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -51,6 +55,45 @@ export function AdminReservationListPage() {
       alert('動画URLを更新しました')
     } catch (error) {
       alert('動画URLの更新に失敗しました')
+    }
+  }
+
+  const handleExportCsv = async () => {
+    try {
+      setExportStatus('ダウンロード中...')
+      const params = new URLSearchParams()
+      if (exportStatusFilter) params.append('status', exportStatusFilter)
+      if (exportStartFrom) params.append('startFrom', new Date(exportStartFrom).toISOString())
+      if (exportStartTo) params.append('startTo', new Date(exportStartTo).toISOString())
+
+      const res = await apiClient.get(`/api/admin/reservations/export?${params.toString()}`, {
+        responseType: 'blob',
+      })
+
+      // Extract filename from Content-Disposition header or use default
+      const disposition = res.headers['content-disposition']
+      let filename = 'reservations.csv'
+      if (disposition) {
+        const match = disposition.match(/filename="?(.+?)"?$/)
+        if (match) filename = match[1]
+      }
+
+      // Trigger download
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+
+      setExportStatus('ダウンロード完了')
+      setTimeout(() => setExportStatus(''), 3000)
+    } catch (error) {
+      console.error('Export failed', error)
+      setExportStatus('エクスポートに失敗しました')
+      setTimeout(() => setExportStatus(''), 3000)
     }
   }
 
@@ -120,6 +163,63 @@ export function AdminReservationListPage() {
                 現在の設定: {videoUrl}
             </p>
         </div>
+      </section>
+
+      <section style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#f0fdf4', borderRadius: '8px' }}>
+        <h2 style={{ marginTop: 0 }}>📊 予約データ エクスポート</h2>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div className="field" style={{ minWidth: '150px' }}>
+            <label htmlFor="exportStatus">ステータス</label>
+            <select
+              id="exportStatus"
+              value={exportStatusFilter}
+              onChange={(e) => setExportStatusFilter(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', width: '100%' }}
+            >
+              <option value="">すべて</option>
+              <option value="pending">申請中</option>
+              <option value="approved">承認済み</option>
+              <option value="rejected">却下</option>
+              <option value="cancelled">キャンセル済み</option>
+              <option value="cancellation_requested">キャンセル申請中</option>
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: '160px' }}>
+            <label htmlFor="exportStartFrom">利用開始日 (From)</label>
+            <input
+              id="exportStartFrom"
+              type="date"
+              value={exportStartFrom}
+              onChange={(e) => setExportStartFrom(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', width: '100%' }}
+            />
+          </div>
+          <div className="field" style={{ minWidth: '160px' }}>
+            <label htmlFor="exportStartTo">利用開始日 (To)</label>
+            <input
+              id="exportStartTo"
+              type="date"
+              value={exportStartTo}
+              onChange={(e) => setExportStartTo(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', width: '100%' }}
+            />
+          </div>
+          <button
+            className="button"
+            onClick={handleExportCsv}
+            style={{ height: 'fit-content', whiteSpace: 'nowrap' }}
+          >
+            📥 CSVダウンロード
+          </button>
+          {exportStatus && (
+            <span style={{ fontSize: '0.85rem', color: exportStatus.includes('失敗') ? '#dc2626' : '#16a34a' }}>
+              {exportStatus}
+            </span>
+          )}
+        </div>
+        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
+          ダウンロードしたCSVはExcelやGoogleスプレッドシートで開けます
+        </p>
       </section>
       
       <section>
