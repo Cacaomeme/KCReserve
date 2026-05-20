@@ -54,8 +54,8 @@ export function LoginPage() {
 
   return (
     <div className="page">
-      <div className="page-body">
-      <header className="page-header">
+      <div className="page-body" style={{ alignItems: 'center' }}>
+      <header className="page-header" style={{ textAlign: 'center' }}>
         <div>
           <p className="eyebrow">KC Reserve</p>
           <h1>{t('auth.signIn')}</h1>

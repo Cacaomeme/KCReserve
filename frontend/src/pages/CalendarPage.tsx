@@ -294,7 +294,7 @@ export function CalendarPage() {
 
           <div className="navbar-actions">
             {/* Desktop actions */}
-            <div className="desktop-only" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="desktop-only">
               <button className="button large" onClick={() => navigate('/reservations/new')}>
                 ＋ 予約申請
               </button>
@@ -313,7 +313,7 @@ export function CalendarPage() {
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                   >
                     <span className="avatar">{(user.display_name || user.email)[0].toUpperCase()}</span>
-                    <span>{user.display_name || user.email.split('@')[0]}</span>
+                    <span className="user-name">{user.display_name || user.email.split('@')[0]}</span>
                     <span className="chevron">▼</span>
                   </button>
 
