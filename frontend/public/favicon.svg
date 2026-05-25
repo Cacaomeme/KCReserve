@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#4a90d9"/>
+    </linearGradient>
+    <linearGradient id="mountain" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5b7f5e"/>
+      <stop offset="100%" stop-color="#3d5c3f"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="url(#sky)"/>
+  <!-- Mountain -->
+  <polygon points="8,48 32,16 56,48" fill="url(#mountain)"/>
+  <!-- Snow cap -->
+  <polygon points="26,24 32,16 38,24 35,24 32,20 29,24" fill="#ffffff" opacity="0.9"/>
+  <!-- Hut -->
+  <rect x="27" y="36" width="10" height="8" rx="1" fill="#c4813d"/>
+  <polygon points="25,36 32,30 39,36" fill="#8b4513"/>
+  <!-- Door -->
+  <rect x="30" y="39" width="4" height="5" rx="0.5" fill="#5a2d0c"/>
+  <!-- KC text -->
+  <text x="32" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#ffffff" opacity="0.95">KC</text>
+</svg>
