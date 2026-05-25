@@ -34,8 +34,9 @@ export function AdminWhitelistPage() {
     try {
       await addEntry(form)
       setForm({ email: '', display_name: '', is_admin_default: false })
-    } catch (err) {
-      alert('Failed to add entry')
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to add entry'
+      alert(msg)
     }
   }
 
@@ -55,8 +56,9 @@ export function AdminWhitelistPage() {
     try {
       await updateEntry({ id, payload: editForm })
       setEditingId(null)
-    } catch (err) {
-      alert('Failed to update entry')
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to update entry'
+      alert(msg)
     }
   }
 
@@ -64,8 +66,9 @@ export function AdminWhitelistPage() {
     if (!confirm(t('admin.whitelist.confirmDelete'))) return
     try {
       await deleteEntry(id)
-    } catch (err) {
-      alert('Failed to delete entry')
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to delete entry'
+      alert(msg)
     }
   }
 

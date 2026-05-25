@@ -328,22 +328,25 @@ def add_whitelist_entry():
 
     user_id = get_jwt_identity()
 
-    with session_scope() as session:
-        exists = session.query(WhitelistEntry).filter(WhitelistEntry.email == email).first()
-        if exists:
-            return jsonify({"message": "既にホワイトリストに登録されています"}), HTTPStatus.CONFLICT
+    try:
+        with session_scope() as session:
+            exists = session.query(WhitelistEntry).filter(WhitelistEntry.email == email).first()
+            if exists:
+                return jsonify({"message": "既にホワイトリストに登録されています"}), HTTPStatus.CONFLICT
 
-        entry = WhitelistEntry(
-            email=email,
-            display_name=display_name,
-            is_admin_default=is_admin_default,
-            added_by_user_id=int(user_id) if user_id else None,
-            created_at=datetime.utcnow(),
-        )
-        session.add(entry)
-        session.flush()
+            entry = WhitelistEntry(
+                email=email,
+                display_name=display_name,
+                is_admin_default=is_admin_default,
+                added_by_user_id=int(user_id) if user_id else None,
+                created_at=datetime.utcnow(),
+            )
+            session.add(entry)
+            session.flush()
 
-        return jsonify({"entry": serialize_whitelist_entry(entry)}), HTTPStatus.CREATED
+            return jsonify({"entry": serialize_whitelist_entry(entry)}), HTTPStatus.CREATED
+    except Exception as exc:
+        return jsonify({"message": f"登録に失敗しました: {exc}"}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @admin_bp.put("/api/admin/whitelist/<int:entry_id>")
