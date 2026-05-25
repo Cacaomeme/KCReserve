@@ -43,7 +43,7 @@ services:
 
   # フロントエンド (React/Vite)
   - type: web
-    name: kcreserve-frontend
+    name: kcreserve
     runtime: static
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: "./frontend/dist"
