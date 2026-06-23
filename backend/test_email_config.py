@@ -1,22 +1,21 @@
 import os
 import smtplib
 from email.message import EmailMessage
-import sys
 
-def test_email_config():
+import pytest
+
+def _run_email_config(
+    *,
+    mail_server: str,
+    mail_port: str,
+    mail_username: str,
+    mail_password: str,
+    mail_use_tls: bool,
+    recipient: str,
+) -> None:
     print("--- Email Configuration Test ---")
-    
-    # 1. Get Credentials
-    mail_server = os.environ.get("MAIL_SERVER") or input("MAIL_SERVER (e.g., smtp.gmail.com): ").strip()
-    mail_port = os.environ.get("MAIL_PORT") or input("MAIL_PORT (default 587): ").strip() or "587"
-    mail_username = os.environ.get("MAIL_USERNAME") or input("MAIL_USERNAME: ").strip()
-    mail_password = os.environ.get("MAIL_PASSWORD") or input("MAIL_PASSWORD (App Password if Gmail): ").strip()
-    mail_use_tls = os.environ.get("MAIL_USE_TLS", "True").lower() == "true"
-    
-    recipient = input("Enter a recipient email address for the test: ").strip()
-    
     print(f"\nAttempting to connect to {mail_server}:{mail_port}...")
-    
+
     msg = EmailMessage()
     msg.set_content("This is a test email from KC Reserve debug script.")
     msg['Subject'] = "KC Reserve Email Test"
@@ -49,5 +48,32 @@ def test_email_config():
         print("2. Check if the server and port are correct (smtp.gmail.com:587 is standard for TLS).")
         print("3. Check your internet connection.")
 
+
+def test_email_config():
+    required_env = ("MAIL_SERVER", "MAIL_USERNAME", "MAIL_PASSWORD", "MAIL_TEST_RECIPIENT")
+    missing = [name for name in required_env if not os.environ.get(name)]
+    if missing:
+        pytest.skip(
+            "Email configuration smoke test requires environment variables: "
+            + ", ".join(required_env)
+        )
+
+    _run_email_config(
+        mail_server=os.environ["MAIL_SERVER"],
+        mail_port=os.environ.get("MAIL_PORT", "587"),
+        mail_username=os.environ["MAIL_USERNAME"],
+        mail_password=os.environ["MAIL_PASSWORD"],
+        mail_use_tls=os.environ.get("MAIL_USE_TLS", "True").lower() == "true",
+        recipient=os.environ["MAIL_TEST_RECIPIENT"],
+    )
+
+
 if __name__ == "__main__":
-    test_email_config()
+    _run_email_config(
+        mail_server=os.environ.get("MAIL_SERVER") or input("MAIL_SERVER (e.g., smtp.gmail.com): ").strip(),
+        mail_port=os.environ.get("MAIL_PORT") or input("MAIL_PORT (default 587): ").strip() or "587",
+        mail_username=os.environ.get("MAIL_USERNAME") or input("MAIL_USERNAME: ").strip(),
+        mail_password=os.environ.get("MAIL_PASSWORD") or input("MAIL_PASSWORD (App Password if Gmail): ").strip(),
+        mail_use_tls=os.environ.get("MAIL_USE_TLS", "True").lower() == "true",
+        recipient=os.environ.get("MAIL_TEST_RECIPIENT") or input("Enter a recipient email address for the test: ").strip(),
+    )

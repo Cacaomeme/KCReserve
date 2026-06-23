@@ -11,6 +11,7 @@ def _reservation_payload(**overrides):
     now = datetime.utcnow()
     payload = {
         "purpose": "登山チームの集まり",
+        "displayMessage": "登山チーム",
         "description": "テスト予約",
         "attendeeCount": 4,
         "allowAdditionalMembers": True,

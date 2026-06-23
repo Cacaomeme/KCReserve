@@ -94,6 +94,13 @@ def create_reservation():
     end_time = _parse_datetime(payload.get("endTime"))
     visibility = _visibility_from_payload(payload.get("visibility")) or ReservationVisibility.PUBLIC
     purpose = (payload.get("purpose") or "").strip()
+    display_message = (payload.get("displayMessage") or "").strip()
+    description = (payload.get("description") or "").strip()
+
+    try:
+        attendee_count = int(payload.get("attendeeCount", 1))
+    except (TypeError, ValueError):
+        attendee_count = 0
 
     errors = []
     if not start_time or not end_time:
@@ -103,6 +110,12 @@ def create_reservation():
 
     if not purpose:
         errors.append("purpose は必須です")
+    if visibility == ReservationVisibility.PUBLIC and not display_message:
+        errors.append("公開予約では displayMessage は必須です")
+    if not description:
+        errors.append("description は必須です")
+    if attendee_count < 1:
+        errors.append("attendeeCount は1以上で指定してください")
 
     if errors:
         return jsonify({"message": "; ".join(errors)}), HTTPStatus.BAD_REQUEST
@@ -111,9 +124,9 @@ def create_reservation():
         user_id=int(user_id),
         visibility=visibility,
         purpose=purpose,
-        display_message=payload.get("displayMessage"),
-        description=payload.get("description"),
-        attendee_count=int(payload.get("attendeeCount", 1)),
+        display_message=display_message or None,
+        description=description,
+        attendee_count=attendee_count,
         allow_additional_members=bool(payload.get("allowAdditionalMembers", False)),
         start_time=start_time,
         end_time=end_time,
@@ -220,7 +233,7 @@ def calendar_reservations():
                 payload["attendeeCount"] = reservation.attendee_count
                 payload["userDisplayName"] = user_name
             else:
-                payload["title"] = "匿名"
+                payload["title"] = None
             
             events.append(payload)
 

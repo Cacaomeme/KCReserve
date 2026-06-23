@@ -4,6 +4,7 @@ import { clearAccessToken, setAccessToken } from './session'
 export type AuthUser = {
   id: number
   email: string
+  displayName?: string | null
   display_name?: string | null
   isAdmin: boolean
   receivesNotification: boolean

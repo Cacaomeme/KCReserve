@@ -21,7 +21,7 @@ export function ProfilePage() {
     if (user) {
       setForm({
         email: user.email,
-        display_name: user.display_name || '',
+        display_name: user.displayName || user.display_name || '',
         receives_notification: user.receivesNotification,
       })
     }

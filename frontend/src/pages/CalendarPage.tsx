@@ -86,6 +86,7 @@ export function CalendarPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const authFingerprint = user ? `${user.id}-${user.isAdmin ? 'admin' : 'member'}` : 'anonymous'
+  const userDisplayName = user?.displayName || user?.display_name || user?.email.split('@')[0] || ''
   
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'public' | 'anonymous'>('all')
   const [range, setRange] = useState(() => ({
@@ -300,7 +301,7 @@ export function CalendarPage() {
               </button>
               {user?.isAdmin && (
                 <button className="button secondary large" onClick={() => navigate('/admin/reservations')} style={{ position: 'relative' }}>
-                  申請一覧
+                  管理者: 申請一覧
                   {pendingCount > 0 && <span className="badge">{pendingCount}</span>}
                 </button>
               )}
@@ -312,8 +313,8 @@ export function CalendarPage() {
                     className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                   >
-                    <span className="avatar">{(user.display_name || user.email)[0].toUpperCase()}</span>
-                    <span className="user-name">{user.display_name || user.email.split('@')[0]}</span>
+                    <span className="avatar">{(userDisplayName || user.email)[0].toUpperCase()}</span>
+                    <span className="user-name">{userDisplayName}</span>
                     <span className="chevron">▼</span>
                   </button>
 
@@ -363,7 +364,7 @@ export function CalendarPage() {
           </button>
           {user?.isAdmin && (
             <button className="mobile-menu-item" onClick={() => { navigate('/admin/reservations'); closeMobileMenu() }}>
-              📋 申請一覧 {pendingCount > 0 && <span className="badge" style={{ position: 'static', marginLeft: '0.25rem' }}>{pendingCount}</span>}
+              📋 管理者: 申請一覧 {pendingCount > 0 && <span className="badge" style={{ position: 'static', marginLeft: '0.25rem' }}>{pendingCount}</span>}
             </button>
           )}
           <button className="mobile-menu-item" onClick={() => { navigate('/profile'); closeMobileMenu() }}>

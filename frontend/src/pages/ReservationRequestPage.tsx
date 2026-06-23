@@ -18,9 +18,38 @@ export function ReservationRequestPage() {
     attendeeCount: 1,
   })
 
+  const validateForm = () => {
+    if (!form.startTime || !form.endTime) {
+      return '開始日時と終了日時を入力してください'
+    }
+    if (new Date(form.endTime) <= new Date(form.startTime)) {
+      return '終了日時は開始日時より後にしてください'
+    }
+    if (!form.purpose.trim()) {
+      return '使用用途を入力してください'
+    }
+    if (!Number.isFinite(form.attendeeCount) || form.attendeeCount < 1) {
+      return '人数は1人以上で入力してください'
+    }
+    if (form.visibility === 'public' && !form.displayMessage.trim()) {
+      return '公開希望の場合はカレンダー表示メッセージを入力してください'
+    }
+    if (!form.description.trim()) {
+      return '詳細メッセージを入力してください'
+    }
+    return null
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -28,9 +57,9 @@ export function ReservationRequestPage() {
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
         visibility: form.visibility,
-        purpose: form.purpose,
-        displayMessage: form.displayMessage,
-        description: form.description,
+        purpose: form.purpose.trim(),
+        displayMessage: form.displayMessage.trim(),
+        description: form.description.trim(),
         attendeeCount: form.attendeeCount,
       })
       navigate('/')
@@ -57,6 +86,7 @@ export function ReservationRequestPage() {
               value={form.startTime}
               onChange={e => setForm({...form, startTime: e.target.value})}
               min={now}
+              disabled={isSubmitting}
               required
             />
           </div>
@@ -67,6 +97,7 @@ export function ReservationRequestPage() {
               value={form.endTime}
               onChange={e => setForm({...form, endTime: e.target.value})}
               min={form.startTime || now}
+              disabled={isSubmitting}
               required
             />
           </div>
@@ -75,11 +106,16 @@ export function ReservationRequestPage() {
             <select 
               value={form.visibility}
               onChange={e => setForm({...form, visibility: e.target.value})}
+              disabled={isSubmitting}
+              required
               style={{ width: '100%', padding: '0.5rem' }}
             >
               <option value="public">公開希望</option>
               <option value="anonymous">匿名希望</option>
             </select>
+            <p className="field-note">
+              ※匿名希望の場合、他の人のカレンダー上では名前・人数・使用用途・詳細メッセージは匿名表示になります。
+            </p>
           </div>
           <div className="field">
             <label>使用用途</label>
@@ -87,6 +123,7 @@ export function ReservationRequestPage() {
               type="text" 
               value={form.purpose}
               onChange={e => setForm({...form, purpose: e.target.value})}
+              disabled={isSubmitting}
               required
             />
           </div>
@@ -96,7 +133,8 @@ export function ReservationRequestPage() {
               type="number" 
               min="1"
               value={form.attendeeCount}
-              onChange={e => setForm({...form, attendeeCount: parseInt(e.target.value)})}
+              onChange={e => setForm({...form, attendeeCount: Number(e.target.value)})}
+              disabled={isSubmitting}
               required
             />
           </div>
@@ -107,8 +145,10 @@ export function ReservationRequestPage() {
                 type="text" 
                 value={form.displayMessage}
                 onChange={e => setForm({...form, displayMessage: e.target.value})}
+                disabled={isSubmitting}
+                required
               />
-              <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+              <p className="field-note">
                 ※カレンダー表示メッセージは申請後も編集可能です
               </p>
             </div>
@@ -119,9 +159,11 @@ export function ReservationRequestPage() {
               value={form.description}
               onChange={e => setForm({...form, description: e.target.value})}
               rows={4}
+              disabled={isSubmitting}
+              required
               style={{ width: '100%', padding: '0.5rem' }}
             />
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+            <p className="field-note">
               ※詳細メッセージは申請後も編集可能です
             </p>
           </div>
