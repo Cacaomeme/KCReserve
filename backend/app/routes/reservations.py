@@ -13,7 +13,12 @@ from sqlalchemy import or_
 from app.database import session_scope
 from app.models.reservation import Reservation, ReservationStatus, ReservationVisibility
 from app.schemas import serialize_reservation
-from app.utils.email import send_new_reservation_notification, send_cancellation_request_notification
+from app.utils.email import (
+    send_cancellation_request_notification,
+    send_new_reservation_notification,
+    send_reservation_received_notification,
+    send_reservation_status_notification,
+)
 
 reservations_bp = Blueprint("reservations", __name__)
 reservations_admin_bp = Blueprint("reservations_admin", __name__)
@@ -64,6 +69,16 @@ def _status_from_payload(value: str | None) -> ReservationStatus | None:
         return ReservationStatus(value)
     except ValueError:
         return None
+
+
+def _bool_from_payload(value: object, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
 
 
 def _is_admin(claims: dict | None) -> bool:
@@ -128,6 +143,7 @@ def create_reservation():
         description=description,
         attendee_count=attendee_count,
         allow_additional_members=bool(payload.get("allowAdditionalMembers", False)),
+        notify_applicant=_bool_from_payload(payload.get("notifyApplicant"), True),
         start_time=start_time,
         end_time=end_time,
     )
@@ -137,9 +153,12 @@ def create_reservation():
         session.flush()
         response_body = serialize_reservation(reservation, include_private=True)
         reservation_id = reservation.id
+        should_notify_applicant = reservation.notify_applicant
 
     # Send notification email to admins
     send_new_reservation_notification(reservation_id)
+    if should_notify_applicant:
+        send_reservation_received_notification(reservation_id)
 
     return jsonify({"reservation": response_body}), HTTPStatus.CREATED
 
@@ -327,11 +346,15 @@ def update_reservation_status(reservation_id: int):
     if new_status is None:
         return jsonify({"message": "status は必須です"}), HTTPStatus.BAD_REQUEST
 
+    previous_status_value = None
+    should_notify_applicant = False
+
     with session_scope() as session:
         reservation = session.get(Reservation, reservation_id)
         if reservation is None:
             return jsonify({"message": "予約が見つかりません"}), HTTPStatus.NOT_FOUND
 
+        previous_status_value = reservation.status.value
         reservation.status = new_status
         if new_visibility is not None:
             reservation.visibility = new_visibility
@@ -346,8 +369,14 @@ def update_reservation_status(reservation_id: int):
         reservation.updated_at = datetime.utcnow()
         session.add(reservation)
         session.flush()
+        should_notify_applicant = reservation.notify_applicant and previous_status_value != new_status.value
 
-        return jsonify({"reservation": serialize_reservation(reservation, include_private=True)}), HTTPStatus.OK
+        response_body = serialize_reservation(reservation, include_private=True)
+
+    if should_notify_applicant:
+        send_reservation_status_notification(reservation_id, previous_status=previous_status_value)
+
+    return jsonify({"reservation": response_body}), HTTPStatus.OK
 
 
 @reservations_admin_bp.delete("/api/admin/reservations/<int:reservation_id>")

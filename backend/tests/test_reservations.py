@@ -49,6 +49,64 @@ def test_user_can_create_and_view_their_reservation(client):
     assert mine_list[0]["purpose"] == "登山チームの集まり"
 
 
+def test_create_reservation_sends_received_notification_when_enabled(client, monkeypatch):
+    received_notifications = []
+
+    def fake_send(reservation_id):
+        received_notifications.append(reservation_id)
+
+    monkeypatch.setattr(
+        "app.routes.reservations.send_reservation_received_notification",
+        fake_send,
+    )
+
+    token = register_user_and_get_token(
+        client,
+        email="member-received@example.com",
+        password="Secret123!",
+        is_admin=False,
+    )
+
+    create_resp = client.post(
+        "/api/reservations",
+        headers={"Authorization": f"Bearer {token}"},
+        json=_reservation_payload(notifyApplicant=True),
+    )
+
+    assert create_resp.status_code == 201
+    reservation_id = create_resp.get_json()["reservation"]["id"]
+    assert received_notifications == [reservation_id]
+
+
+def test_create_reservation_skips_received_notification_when_disabled(client, monkeypatch):
+    received_notifications = []
+
+    def fake_send(reservation_id):
+        received_notifications.append(reservation_id)
+
+    monkeypatch.setattr(
+        "app.routes.reservations.send_reservation_received_notification",
+        fake_send,
+    )
+
+    token = register_user_and_get_token(
+        client,
+        email="member-no-received@example.com",
+        password="Secret123!",
+        is_admin=False,
+    )
+
+    create_resp = client.post(
+        "/api/reservations",
+        headers={"Authorization": f"Bearer {token}"},
+        json=_reservation_payload(notifyApplicant=False),
+    )
+
+    assert create_resp.status_code == 201
+    assert create_resp.get_json()["reservation"]["notifyApplicant"] is False
+    assert received_notifications == []
+
+
 def test_admin_can_approve_and_public_list_shows_it(client):
     admin_token = register_user_and_get_token(
         client,
@@ -89,6 +147,89 @@ def test_admin_can_approve_and_public_list_shows_it(client):
     admin_reservations = admin_list.get_json()["reservations"]
     assert len(admin_reservations) == 1
     assert admin_reservations[0]["purpose"] == "登山チームの集まり"
+
+
+def test_admin_status_update_notifies_applicant_when_enabled(client, monkeypatch):
+    sent_notifications = []
+
+    def fake_send(reservation_id, previous_status=None):
+        sent_notifications.append((reservation_id, previous_status))
+
+    monkeypatch.setattr(
+        "app.routes.reservations.send_reservation_status_notification",
+        fake_send,
+    )
+
+    admin_token = register_user_and_get_token(
+        client,
+        email="admin-notify@example.com",
+        password="Secret123!",
+        is_admin=True,
+    )
+    user_token = register_user_and_get_token(
+        client,
+        email="member-notify@example.com",
+        password="Secret123!",
+        is_admin=False,
+    )
+
+    create_resp = client.post(
+        "/api/reservations",
+        headers={"Authorization": f"Bearer {user_token}"},
+        json=_reservation_payload(notifyApplicant=True),
+    )
+    reservation_id = create_resp.get_json()["reservation"]["id"]
+
+    approve_resp = client.patch(
+        f"/api/admin/reservations/{reservation_id}/status",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"status": "approved"},
+    )
+
+    assert approve_resp.status_code == 200
+    assert sent_notifications == [(reservation_id, "pending")]
+
+
+def test_admin_status_update_skips_applicant_notification_when_disabled(client, monkeypatch):
+    sent_notifications = []
+
+    def fake_send(reservation_id, previous_status=None):
+        sent_notifications.append((reservation_id, previous_status))
+
+    monkeypatch.setattr(
+        "app.routes.reservations.send_reservation_status_notification",
+        fake_send,
+    )
+
+    admin_token = register_user_and_get_token(
+        client,
+        email="admin-no-notify@example.com",
+        password="Secret123!",
+        is_admin=True,
+    )
+    user_token = register_user_and_get_token(
+        client,
+        email="member-no-notify@example.com",
+        password="Secret123!",
+        is_admin=False,
+    )
+
+    create_resp = client.post(
+        "/api/reservations",
+        headers={"Authorization": f"Bearer {user_token}"},
+        json=_reservation_payload(notifyApplicant=False),
+    )
+    reservation = create_resp.get_json()["reservation"]
+    assert reservation["notifyApplicant"] is False
+
+    approve_resp = client.patch(
+        f"/api/admin/reservations/{reservation['id']}/status",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"status": "approved"},
+    )
+
+    assert approve_resp.status_code == 200
+    assert sent_notifications == []
 
 
 def test_reservation_filters_by_visibility_and_date(client):

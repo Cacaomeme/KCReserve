@@ -16,6 +16,7 @@ export function ReservationRequestPage() {
     displayMessage: '',
     description: '',
     attendeeCount: 1,
+    notifyApplicant: true,
   })
 
   const validateForm = () => {
@@ -61,6 +62,7 @@ export function ReservationRequestPage() {
         displayMessage: form.displayMessage.trim(),
         description: form.description.trim(),
         attendeeCount: form.attendeeCount,
+        notifyApplicant: form.notifyApplicant,
       })
       navigate('/')
     } catch (err: any) {
@@ -166,6 +168,18 @@ export function ReservationRequestPage() {
             <p className="field-note">
               ※詳細メッセージは申請後も編集可能です
             </p>
+          </div>
+          <div className="field checkbox-field">
+            <input
+              id="notifyApplicant"
+              type="checkbox"
+              checked={form.notifyApplicant}
+              onChange={e => setForm({...form, notifyApplicant: e.target.checked})}
+              disabled={isSubmitting}
+            />
+            <label htmlFor="notifyApplicant">
+              承認・却下・キャンセル処理の結果をメールで受け取る
+            </label>
           </div>
           
           {error && <p className="error-text">{error}</p>}

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from app.config import get_settings
 from app.models.user import User
-from app.models.reservation import Reservation
+from app.models.reservation import Reservation, ReservationStatus
 from app.database import session_scope
 
 def log(msg):
@@ -174,6 +174,53 @@ https://kcreserve.onrender.com/
     thread = threading.Thread(target=_notify)
     thread.start()
 
+def send_reservation_received_notification(reservation_id: int):
+    def _notify():
+        log(f"Starting applicant received notification thread for reservation {reservation_id}")
+        try:
+            with session_scope() as session:
+                reservation = session.get(Reservation, reservation_id)
+                if not reservation:
+                    log(f"Reservation {reservation_id} not found in thread.")
+                    return
+                if not reservation.notify_applicant:
+                    log(f"Applicant notification disabled for reservation {reservation_id}.")
+                    return
+                if not reservation.user or not reservation.user.email:
+                    log(f"Reservation {reservation_id} has no applicant email.")
+                    return
+
+                applicant_email = reservation.user.email
+                user_name = reservation.user.display_name or reservation.user.email
+                purpose = reservation.purpose
+                start = _format_dt_jst(reservation.start_time)
+                end = _format_dt_jst(reservation.end_time)
+                count = reservation.attendee_count
+                desc = reservation.description or "なし"
+
+            subject = f"【KC Reserve】予約申請を受け付けました: {purpose}"
+            body = f"""
+{user_name} 様
+
+以下の予約申請を受け付けました。
+管理者が内容を確認し、承認または却下を行います。
+
+目的: {purpose}
+日時: {start} - {end}
+人数: {count}人
+詳細: {desc}
+
+https://kcreserve.onrender.com/
+"""
+
+            _send_email_sync(applicant_email, subject, body)
+        except Exception as e:
+            log(f"Error in applicant received notification thread: {e}")
+            traceback.print_exc()
+
+    thread = threading.Thread(target=_notify)
+    thread.start()
+
 def send_cancellation_request_notification(reservation_id: int):
     def _notify():
         log(f"Starting cancellation notification thread for reservation {reservation_id}")
@@ -220,6 +267,107 @@ https://kcreserve.onrender.com/
                 _send_email_sync(email, subject, body)
         except Exception as e:
             log(f"Error in cancellation notification thread: {e}")
+            traceback.print_exc()
+
+    thread = threading.Thread(target=_notify)
+    thread.start()
+
+def send_reservation_status_notification(reservation_id: int, previous_status: str | None = None):
+    def _notify():
+        log(f"Starting applicant status notification thread for reservation {reservation_id}")
+        try:
+            with session_scope() as session:
+                reservation = session.get(Reservation, reservation_id)
+                if not reservation:
+                    log(f"Reservation {reservation_id} not found in thread.")
+                    return
+                if not reservation.notify_applicant:
+                    log(f"Applicant notification disabled for reservation {reservation_id}.")
+                    return
+                if not reservation.user or not reservation.user.email:
+                    log(f"Reservation {reservation_id} has no applicant email.")
+                    return
+
+                applicant_email = reservation.user.email
+                user_name = reservation.user.display_name or reservation.user.email
+                purpose = reservation.purpose
+                start = _format_dt_jst(reservation.start_time)
+                end = _format_dt_jst(reservation.end_time)
+                status = reservation.status
+                approval_message = reservation.approval_message or "なし"
+                rejection_reason = reservation.rejection_reason or "なし"
+
+            status_messages = {
+                ReservationStatus.APPROVED: (
+                    "予約が承認されました",
+                    f"""
+{user_name} 様
+
+以下の予約が承認されました。
+
+目的: {purpose}
+日時: {start} - {end}
+管理者からのメッセージ: {approval_message}
+
+https://kcreserve.onrender.com/
+""",
+                ),
+                ReservationStatus.REJECTED: (
+                    "予約が却下されました",
+                    f"""
+{user_name} 様
+
+以下の予約が却下されました。
+
+目的: {purpose}
+日時: {start} - {end}
+却下理由: {rejection_reason}
+
+https://kcreserve.onrender.com/
+""",
+                ),
+                ReservationStatus.CANCELLED: (
+                    "キャンセル申請が承認されました",
+                    f"""
+{user_name} 様
+
+以下の予約のキャンセル申請が承認されました。
+
+目的: {purpose}
+日時: {start} - {end}
+管理者からのメッセージ: {approval_message}
+
+https://kcreserve.onrender.com/
+""",
+                ),
+            }
+
+            if (
+                status == ReservationStatus.APPROVED
+                and previous_status == ReservationStatus.CANCELLATION_REQUESTED.value
+            ):
+                title = "キャンセル申請が却下されました"
+                body = f"""
+{user_name} 様
+
+以下の予約のキャンセル申請が却下され、予約は承認済みに戻りました。
+
+目的: {purpose}
+日時: {start} - {end}
+管理者からのメッセージ: {approval_message}
+
+https://kcreserve.onrender.com/
+"""
+            elif status in status_messages:
+                title, body = status_messages[status]
+            else:
+                log(f"No applicant email template for status {status.value}.")
+                return
+
+            subject = f"【KC Reserve】{title}: {purpose}"
+            _send_email_sync(applicant_email, subject, body)
+        except Exception as e:
+            log(f"Error in applicant status notification thread: {e}")
             traceback.print_exc()
 
     thread = threading.Thread(target=_notify)

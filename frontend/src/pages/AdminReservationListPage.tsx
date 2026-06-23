@@ -15,6 +15,7 @@ type Reservation = {
   cancellationReason?: string
   rejectionReason?: string
   attendeeCount: number
+  notifyApplicant: boolean
   startTime: string
   endTime: string
   createdAt: string
@@ -233,6 +234,7 @@ export function AdminReservationListPage() {
                 <p><strong>申請者:</strong> {r.user?.displayName || '未設定'} ({r.user?.email || 'Unknown'})</p>
                 <p><strong>利用日時:</strong> {new Date(r.startTime).toLocaleString()} - {new Date(r.endTime).toLocaleString()}</p>
                 <p><strong>詳細:</strong> {r.description}</p>
+                <p><strong>申請者メール通知:</strong> {r.notifyApplicant ? '希望あり' : '希望なし'}</p>
                 {r.cancellationReason && <p style={{ color: '#b91c1c' }}><strong>キャンセル理由:</strong> {r.cancellationReason}</p>}
                 
                 <div className="actions" style={{ marginTop: '1rem', display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
@@ -269,6 +271,7 @@ export function AdminReservationListPage() {
                 <p><strong>人数:</strong> {r.attendeeCount}人</p>
                 <p><strong>詳細:</strong> {r.description}</p>
                 <p><strong>公開設定:</strong> {r.visibility === 'public' ? '公開' : '匿名'}</p>
+                <p><strong>申請者メール通知:</strong> {r.notifyApplicant ? '希望あり' : '希望なし'}</p>
                 {r.visibility === 'public' && <p><strong>表示メッセージ:</strong> {r.displayMessage}</p>}
                 
                 <div className="actions" style={{ marginTop: '1rem', display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>

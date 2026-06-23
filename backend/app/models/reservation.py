@@ -50,6 +50,7 @@ class Reservation(Base):
     approval_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     attendee_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     allow_additional_members: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    notify_applicant: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     is_notification_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

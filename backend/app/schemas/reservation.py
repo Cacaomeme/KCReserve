@@ -30,6 +30,7 @@ def serialize_reservation(reservation: Reservation, *, include_private: bool = F
         "approvalMessage": reservation.approval_message if include_private else None,
         "attendeeCount": reservation.attendee_count,
         "allowAdditionalMembers": reservation.allow_additional_members,
+        "notifyApplicant": reservation.notify_applicant,
         "startTime": format_dt(reservation.start_time),
         "endTime": format_dt(reservation.end_time),
         "createdAt": format_dt(reservation.created_at),
