@@ -178,7 +178,7 @@ export function ReservationRequestPage() {
               disabled={isSubmitting}
             />
             <label htmlFor="notifyApplicant">
-              承認・却下・キャンセル処理の結果をメールで受け取る
+              この申請の承認・却下通知をメールで受け取る
             </label>
           </div>
           
