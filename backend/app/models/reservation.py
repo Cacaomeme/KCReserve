@@ -36,6 +36,9 @@ class Reservation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status_updated_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[ReservationStatus] = mapped_column(
         Enum(ReservationStatus), default=ReservationStatus.PENDING, nullable=False
     )
@@ -59,4 +62,5 @@ class Reservation(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
-    user = relationship("User", back_populates="reservations")
+    user = relationship("User", back_populates="reservations", foreign_keys=[user_id])
+    status_updated_by = relationship("User", foreign_keys=[status_updated_by_user_id])

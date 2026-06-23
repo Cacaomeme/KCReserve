@@ -236,6 +236,11 @@ def calendar_reservations():
                 payload["displayMessage"] = reservation.display_message
                 payload["attendeeCount"] = reservation.attendee_count
                 payload["userDisplayName"] = reservation.user.display_name if reservation.user else "Unknown"
+                if reservation.status_updated_by:
+                    payload["statusUpdatedByDisplayName"] = (
+                        reservation.status_updated_by.display_name
+                        or reservation.status_updated_by.email
+                    )
                 if reservation.status == ReservationStatus.REJECTED:
                     payload["rejectionReason"] = reservation.rejection_reason
                 if reservation.status in [ReservationStatus.APPROVED, ReservationStatus.CANCELLED]:
@@ -339,6 +344,7 @@ def update_reservation_status(reservation_id: int):
     if not _is_admin(claims):
         return jsonify({"message": "管理者権限が必要です"}), HTTPStatus.FORBIDDEN
 
+    admin_user_id = get_jwt_identity()
     payload = request.get_json() or {}
     new_status = _status_from_payload(payload.get("status"))
     new_visibility = _visibility_from_payload(payload.get("visibility"))
@@ -356,6 +362,7 @@ def update_reservation_status(reservation_id: int):
 
         previous_status_value = reservation.status.value
         reservation.status = new_status
+        reservation.status_updated_by_user_id = int(admin_user_id) if admin_user_id else None
         if new_visibility is not None:
             reservation.visibility = new_visibility
         

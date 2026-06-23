@@ -12,6 +12,7 @@ export type CalendarEvent = {
   userDisplayName?: string
   rejectionReason?: string
   approvalMessage?: string
+  statusUpdatedByDisplayName?: string
   isOwner?: boolean
   displayMessage?: string
 }

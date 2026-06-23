@@ -132,8 +132,10 @@ def test_admin_can_approve_and_public_list_shows_it(client):
         json={"status": "approved", "visibility": "anonymous"},
     )
     assert approve_resp.status_code == 200
-    assert approve_resp.get_json()["reservation"]["status"] == "approved"
-    assert approve_resp.get_json()["reservation"]["visibility"] == "anonymous"
+    approved_reservation = approve_resp.get_json()["reservation"]
+    assert approved_reservation["status"] == "approved"
+    assert approved_reservation["visibility"] == "anonymous"
+    assert approved_reservation["statusUpdatedBy"]["email"] == "admin2@example.com"
 
     public_resp = client.get("/api/reservations")
     reservations = public_resp.get_json()["reservations"]
@@ -147,6 +149,7 @@ def test_admin_can_approve_and_public_list_shows_it(client):
     admin_reservations = admin_list.get_json()["reservations"]
     assert len(admin_reservations) == 1
     assert admin_reservations[0]["purpose"] == "登山チームの集まり"
+    assert admin_reservations[0]["statusUpdatedBy"]["email"] == "admin2@example.com"
 
 
 def test_admin_status_update_notifies_applicant_when_enabled(client, monkeypatch):
@@ -353,3 +356,4 @@ def test_calendar_endpoint_masks_titles_for_anonymous(client):
     )
     admin_events = {event["id"]: event for event in admin_resp.get_json()["events"]}
     assert admin_events[anon_id]["title"] == "秘密のイベント"
+    assert admin_events[anon_id]["statusUpdatedByDisplayName"] == "Tester"

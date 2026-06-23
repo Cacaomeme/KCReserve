@@ -30,6 +30,7 @@ class User(Base):
     reservations = relationship(
         "Reservation",
         back_populates="user",
+        foreign_keys="Reservation.user_id",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )

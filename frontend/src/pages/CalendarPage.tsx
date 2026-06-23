@@ -186,6 +186,7 @@ export function CalendarPage() {
             userDisplayName: event.userDisplayName,
             rejectionReason: event.rejectionReason,
             approvalMessage: event.approvalMessage,
+            statusUpdatedByDisplayName: event.statusUpdatedByDisplayName,
             status: event.status,
             visibility: event.visibility,
             isOwner: event.isOwner
@@ -510,6 +511,12 @@ export function CalendarPage() {
                 <div className="detail-row">
                   <span className="detail-label">人数</span>
                   <span className="detail-value">{selectedEvent.extendedProps.attendeeCount}人</span>
+                </div>
+              )}
+              {selectedEvent.extendedProps.statusUpdatedByDisplayName && (
+                <div className="detail-row">
+                  <span className="detail-label">担当した管理者</span>
+                  <span className="detail-value">{selectedEvent.extendedProps.statusUpdatedByDisplayName}</span>
                 </div>
               )}
 

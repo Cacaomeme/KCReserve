@@ -28,6 +28,9 @@ def serialize_reservation(reservation: Reservation, *, include_private: bool = F
         "cancellationReason": reservation.cancellation_reason if include_private else None,
         "rejectionReason": reservation.rejection_reason if include_private else None,
         "approvalMessage": reservation.approval_message if include_private else None,
+        "statusUpdatedBy": serialize_user(reservation.status_updated_by)
+        if include_private and reservation.status_updated_by
+        else None,
         "attendeeCount": reservation.attendee_count,
         "allowAdditionalMembers": reservation.allow_additional_members,
         "notifyApplicant": reservation.notify_applicant,

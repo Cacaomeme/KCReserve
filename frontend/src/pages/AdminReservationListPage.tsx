@@ -6,7 +6,8 @@ import { getVideoUrl, updateVideoUrl } from '../api/systemSettings'
 type Reservation = {
   id: number
   userId: number
-  user?: { displayName: string; email: string }
+  user?: { displayName?: string; email: string }
+  statusUpdatedBy?: { displayName?: string; email: string } | null
   status: string
   visibility: string
   purpose: string
@@ -137,6 +138,8 @@ export function AdminReservationListPage() {
   const pendingReservations = reservations.filter(r => r.status === 'pending')
   const cancellationRequests = reservations.filter(r => r.status === 'cancellation_requested')
   const otherReservations = reservations.filter(r => r.status !== 'pending' && r.status !== 'cancellation_requested')
+  const getAdminName = (reservation: Reservation) =>
+    reservation.statusUpdatedBy?.displayName || reservation.statusUpdatedBy?.email || '未記録'
 
   return (
     <div className="page">
@@ -187,7 +190,7 @@ export function AdminReservationListPage() {
             </select>
           </div>
           <div className="field" style={{ minWidth: '160px' }}>
-            <label htmlFor="exportStartFrom">利用開始日 (From)</label>
+            <label htmlFor="exportStartFrom">いつから (From)</label>
             <input
               id="exportStartFrom"
               type="date"
@@ -197,7 +200,7 @@ export function AdminReservationListPage() {
             />
           </div>
           <div className="field" style={{ minWidth: '160px' }}>
-            <label htmlFor="exportStartTo">利用開始日 (To)</label>
+            <label htmlFor="exportStartTo">いつまで (To)</label>
             <input
               id="exportStartTo"
               type="date"
@@ -310,6 +313,7 @@ export function AdminReservationListPage() {
                 <h3>{r.purpose} - {r.status}</h3>
                 <p><strong>申請者:</strong> {r.user?.displayName || '未設定'} ({r.user?.email})</p>
                 <p><strong>利用日時:</strong> {new Date(r.startTime).toLocaleString()}</p>
+                <p><strong>担当した管理者:</strong> {getAdminName(r)}</p>
                 {r.status === 'rejected' && <p style={{ color: 'red' }}>理由: {r.rejectionReason}</p>}
               </div>
             ))}
