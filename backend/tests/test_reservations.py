@@ -193,6 +193,46 @@ def test_admin_status_update_notifies_applicant_when_enabled(client, monkeypatch
     assert sent_notifications == [(reservation_id, "pending")]
 
 
+def test_admin_export_csv_includes_status_updated_by(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.routes.reservations.send_reservation_status_notification",
+        lambda reservation_id, previous_status=None: None,
+    )
+
+    admin_token = register_user_and_get_token(
+        client,
+        email="admin-export@example.com",
+        password="Secret123!",
+        is_admin=True,
+    )
+    user_token = register_user_and_get_token(
+        client,
+        email="member-export@example.com",
+        password="Secret123!",
+        is_admin=False,
+    )
+
+    create_resp = client.post(
+        "/api/reservations",
+        headers={"Authorization": f"Bearer {user_token}"},
+        json=_reservation_payload(),
+    )
+    reservation_id = create_resp.get_json()["reservation"]["id"]
+
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    client.patch(
+        f"/api/admin/reservations/{reservation_id}/status",
+        headers=admin_headers,
+        json={"status": "approved"},
+    )
+
+    export_resp = client.get("/api/admin/reservations/export", headers=admin_headers)
+    assert export_resp.status_code == 200
+    csv_text = export_resp.get_data(as_text=True)
+    assert "担当者" in csv_text
+    assert "承認済み,Tester,Tester,member-export@example.com" in csv_text
+
+
 def test_admin_status_update_skips_applicant_notification_when_disabled(client, monkeypatch):
     sent_notifications = []
 

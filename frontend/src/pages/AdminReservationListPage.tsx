@@ -20,6 +20,7 @@ type Reservation = {
   startTime: string
   endTime: string
   createdAt: string
+  updatedAt: string
 }
 
 export function AdminReservationListPage() {
@@ -137,7 +138,13 @@ export function AdminReservationListPage() {
 
   const pendingReservations = reservations.filter(r => r.status === 'pending')
   const cancellationRequests = reservations.filter(r => r.status === 'cancellation_requested')
-  const otherReservations = reservations.filter(r => r.status !== 'pending' && r.status !== 'cancellation_requested')
+  const otherReservations = reservations
+    .filter(r => r.status !== 'pending' && r.status !== 'cancellation_requested')
+    .sort((a, b) => {
+      const aTime = new Date(a.updatedAt || a.createdAt).getTime()
+      const bTime = new Date(b.updatedAt || b.createdAt).getTime()
+      return bTime - aTime
+    })
   const getAdminName = (reservation: Reservation) =>
     reservation.statusUpdatedBy?.displayName || reservation.statusUpdatedBy?.email || '未記録'
 
@@ -223,7 +230,7 @@ export function AdminReservationListPage() {
           )}
         </div>
         <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
-          ダウンロードしたCSVはExcelやGoogleスプレッドシートで開けます
+          日付を指定しない場合は全期間を出力します。ダウンロードしたCSVはExcelやGoogleスプレッドシートで開けます
         </p>
       </section>
       

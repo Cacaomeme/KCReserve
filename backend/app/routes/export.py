@@ -51,6 +51,12 @@ def _parse_date(value: str | None) -> datetime | None:
         return None
 
 
+def _display_name(user: User | None) -> str:
+    if not user:
+        return ""
+    return user.display_name or user.email
+
+
 @export_bp.get("/api/admin/reservations/export")
 @jwt_required()
 def export_reservations_csv():
@@ -93,6 +99,7 @@ def export_reservations_csv():
         writer.writerow([
             "予約ID",
             "ステータス",
+            "担当者",
             "申請者名",
             "申請者メール",
             "目的",
@@ -112,7 +119,8 @@ def export_reservations_csv():
             writer.writerow([
                 r.id,
                 STATUS_LABELS.get(r.status.value, r.status.value),
-                r.user.display_name or "" if r.user else "",
+                _display_name(r.status_updated_by),
+                _display_name(r.user),
                 r.user.email if r.user else "",
                 r.purpose,
                 _format_jst(r.start_time),
