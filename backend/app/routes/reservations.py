@@ -231,11 +231,13 @@ def calendar_reservations():
             payload["isOwner"] = is_owner
             
             if include_all or is_owner:
-                payload["title"] = reservation.purpose
+                payload["title"] = reservation.display_message or reservation.purpose
+                payload["purpose"] = reservation.purpose
                 payload["description"] = reservation.description
-                payload["displayMessage"] = reservation.display_message
                 payload["attendeeCount"] = reservation.attendee_count
                 payload["userDisplayName"] = reservation.user.display_name if reservation.user else "Unknown"
+                if is_owner:
+                    payload["displayMessage"] = reservation.display_message
                 if reservation.status_updated_by:
                     payload["statusUpdatedByDisplayName"] = (
                         reservation.status_updated_by.display_name
@@ -253,6 +255,7 @@ def calendar_reservations():
                     user_name = "Unknown"
                 msg = reservation.display_message or "予約"
                 payload["title"] = f"{msg} ({user_name})"
+                payload["purpose"] = reservation.purpose
                 payload["description"] = reservation.description
                 payload["attendeeCount"] = reservation.attendee_count
                 payload["userDisplayName"] = user_name

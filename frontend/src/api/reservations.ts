@@ -7,6 +7,7 @@ export type CalendarEvent = {
   visibility: 'public' | 'anonymous'
   status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'cancellation_requested'
   title: string | null
+  purpose?: string
   description?: string
   attendeeCount?: number
   userDisplayName?: string

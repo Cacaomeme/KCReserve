@@ -378,22 +378,28 @@ def test_calendar_endpoint_masks_titles_for_anonymous(client):
     # Public view without token hides anonymous title
     calendar_resp = client.get("/api/reservations/calendar")
     events = {event["id"]: event for event in calendar_resp.get_json()["events"]}
-    assert events[public_id]["title"] is not None  # public reservation keeps title
+    assert events[public_id]["title"] == "登山チーム (Tester)"  # public reservation shows calendar message
+    assert events[public_id]["purpose"] == "登山チームの集まり"
+    assert "displayMessage" not in events[public_id]
     assert events[anon_id]["title"] is None        # anonymous hides title
 
-    # Owner sees their anonymous title
+    # Owner sees their anonymous calendar title fallback and private fields
     owner_resp = client.get(
         "/api/reservations/calendar",
         headers={"Authorization": f"Bearer {member_token}"},
     )
     owner_events = {event["id"]: event for event in owner_resp.get_json()["events"]}
-    assert owner_events[anon_id]["title"] == "秘密のイベント"
+    assert owner_events[anon_id]["title"] == "登山チーム"
+    assert owner_events[anon_id]["purpose"] == "秘密のイベント"
+    assert owner_events[anon_id]["displayMessage"] == "登山チーム"
 
-    # Admin also sees titles
+    # Admin sees purpose but not the owner's editable calendar display message
     admin_resp = client.get(
         "/api/reservations/calendar",
         headers=admin_headers,
     )
     admin_events = {event["id"]: event for event in admin_resp.get_json()["events"]}
-    assert admin_events[anon_id]["title"] == "秘密のイベント"
+    assert admin_events[anon_id]["title"] == "登山チーム"
+    assert admin_events[anon_id]["purpose"] == "秘密のイベント"
+    assert "displayMessage" not in admin_events[anon_id]
     assert admin_events[anon_id]["statusUpdatedByDisplayName"] == "Tester"

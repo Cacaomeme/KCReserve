@@ -180,6 +180,7 @@ export function CalendarPage() {
         classNames: ['calendar-event', `status-${event.status}`],
         extendedProps: {
             id: event.id,
+            purpose: event.purpose,
             description: event.description,
             displayMessage: event.displayMessage,
             attendeeCount: event.attendeeCount,
@@ -491,10 +492,12 @@ export function CalendarPage() {
             </div>
 
             <div className="modal-body">
-              <div className="detail-row">
-                <span className="detail-label">タイトル</span>
-                <span className="detail-value">{selectedEvent.title}</span>
-              </div>
+              {selectedEvent.extendedProps.purpose && (
+                <div className="detail-row">
+                  <span className="detail-label">使用用途</span>
+                  <span className="detail-value">{selectedEvent.extendedProps.purpose}</span>
+                </div>
+              )}
               <div className="detail-row">
                 <span className="detail-label">日時</span>
                 <span className="detail-value">
@@ -554,12 +557,14 @@ export function CalendarPage() {
                       {selectedEvent.extendedProps.description || '(なし)'}
                     </div>
                   </div>
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <span className="detail-label">カレンダー表示メッセージ</span>
-                    <div className="message-box">
-                      {selectedEvent.extendedProps.displayMessage || '(なし)'}
+                  {selectedEvent.extendedProps.isOwner && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <span className="detail-label">カレンダー表示メッセージ</span>
+                      <div className="message-box">
+                        {selectedEvent.extendedProps.displayMessage || '(なし)'}
+                      </div>
                     </div>
-                  </div>
+                  )}
                   {selectedEvent.extendedProps.isOwner && (
                     <button className="button secondary small" style={{ marginTop: '0.5rem' }} onClick={handleEdit}>✏️ 編集</button>
                   )}
